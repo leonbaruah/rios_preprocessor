@@ -1,0 +1,7 @@
+numpy >= 1.10.1
+pandas >= 0.18.0
+geopandas >= 0.1.1
+fiona >= 1.6.3
+rasterio >= 0.25.0
+shapely >= 1.5.13
+pygeoprocessing >= 0.3.0a13
