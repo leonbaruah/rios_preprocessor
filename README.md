@@ -58,7 +58,7 @@ If you have any questions or comments about `rios_preprocessor` specifically, yo
 
 # Changelog
 
-## Version 0.1.0
+## Version 0.1.4
 
-* Hello World!
+* Cleaned up documentation
 
