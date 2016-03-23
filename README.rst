@@ -1,17 +1,18 @@
 Homepages
 ---------
 
-Visit the ``Landmark Information Group`` homepage here:
-`landmark.co.uk <http://www.landmark.co.uk/>`__.
-``Landmark Ecoservices`` page coming soon! Visit the home of ``RIOS`` on
-the web:
+Visit the ``Landmark Information Group`` homepage at
+`landmark.co.uk <http://www.landmark.co.uk/>`__
+(``Landmark Ecoservices`` page coming soon!)
+
+Visit the home of ``RIOS`` on the web at
 `naturalcapitalproject.org <http://www.naturalcapitalproject.org/software/#rios>`__
 
 Discuss
--------
+~~~~~~~
 
-Looking for a place to ask questions about RIOS? Check out the Natural
-Capital Project forums!
+Looking for a place to ask questions about RIOS? Check out the `Natural
+Capital Project forums <http://forums.naturalcapitalproject.org/index.php?p=/categories/rios>`_!
 
 Documentation
 -------------
@@ -43,7 +44,7 @@ uses that may be useful in other contexts:
 -  identifies the end points of rasterized rivers
 
 Dependencies
-------------
+~~~~~~~~~~~~
 
 -  numpy
 -  pandas
@@ -58,19 +59,10 @@ Installation
 
 ``pip install rios_preprocessor``
 
-Contact Details
----------------
-
-Questions about ``RIOS`` are picked up at the Natural Capital Project
-forums.
-
-If you have any questions or comments about ``rios_preprocessor``
-specifically, you can contact me at leon.baruah@landmark.co.uk.
-
 Changelog
-=========
+---------
 
-Version 0.1.0
--------------
+Version 0.1.4
+~~~~~~~~~~~~~
 
--  Hello World!
+-  Cleaned up documentation
