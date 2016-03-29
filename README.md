@@ -58,7 +58,8 @@ If you have any questions or comments about `rios_preprocessor` specifically, yo
 
 # Changelog
 
-## Version 0.1.4
+## Version 0.1.5
 
+* Python 3 style print statement fixing
 * Cleaned up documentation
 

@@ -1757,12 +1757,12 @@ def main(working_path, output_path, hydro_path, rios_coeff_table, lulc_raster_ur
         raster_value_to_index(slope_raster_uri, gwater_slope_index, value_bounds, replacement_index)
 
         message_log.append("\n\tCreated Groundwater/Baseflow slope index: " + gwater_slope_index)
-        if verbose == True: print message_log[-1]
+        if verbose == True: print(message_log[-1])
 
         ## Downslope retention Index
         # Since these are same as Flood mitigation, reuse those rasters if they've been done
         message_log.append("\n\tCreating downslope retention index...")
-        if verbose == True: print message_log[-1]
+        if verbose == True: print(message_log[-1])
 
         # Combined weight R
         gwater_comb_weight_R = working_path + objective['Groundwater Recharge/Baseflow']['intermediate']['comb_weight_ret']
@@ -1786,10 +1786,10 @@ def main(working_path, output_path, hydro_path, rios_coeff_table, lulc_raster_ur
                 normalize(gwater_dret_flowlen, gwater_dret_index)
 
         message_log.append("\n\tCreated Groundwater/Baseflow downslope retention index: " + gwater_dret_index)
-        if verbose == True: print message_log[-1]
+        if verbose == True: print(message_log[-1])
 
         message_log.append("\n\tCreating upslope source...")
-        if verbose == True: print message_log[-1]
+        if verbose == True: print(message_log[-1])
 
         # Annual average precipitation index
         gwater_precip_annual_index =  working_path + objective['Groundwater Recharge/Baseflow']['intermediate']['precip_annual_index']
@@ -1815,7 +1815,7 @@ def main(working_path, output_path, hydro_path, rios_coeff_table, lulc_raster_ur
                                        source_weight_uri = gwater_comb_weight_source)
 
         message_log.append("\n\tCreated Groundwater/Baseflow upslope source: " + gwater_upslope_source)
-        if verbose == True: print message_log[-1]
+        if verbose == True: print(message_log[-1])
  
 #######################################################################################################################
     ### Write input parameters to an output file for user reference

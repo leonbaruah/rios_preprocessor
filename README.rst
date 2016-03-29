@@ -62,7 +62,8 @@ Installation
 Changelog
 ---------
 
-Version 0.1.4
+Version 0.1.5
 ~~~~~~~~~~~~~
 
+-  Python 3 style print statement fixing
 -  Cleaned up documentation
