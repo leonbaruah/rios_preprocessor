@@ -62,6 +62,13 @@ Installation
 Changelog
 ---------
 
+
+Version 0.1.6
+~~~~~~~~~~~~~
+
+-  Implemented logging
+-  PEP8 fixes
+
 Version 0.1.5
 ~~~~~~~~~~~~~
 
