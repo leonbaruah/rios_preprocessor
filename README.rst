@@ -1,9 +1,8 @@
 Homepages
 ---------
 
-Visit the ``Landmark Information Group`` homepage at
-`landmark.co.uk <http://www.landmark.co.uk/>`__
-(``Landmark Ecoservices`` page coming soon!)
+Visit the ``Landmark Ecoservices`` homepage at
+`landmark.co.uk <http://www.landmark.co.uk/landmark-energy-and-sustainability/ecoservices/>`__
 
 Visit the home of ``RIOS`` on the web at
 `naturalcapitalproject.org <http://www.naturalcapitalproject.org/software/#rios>`__
@@ -62,6 +61,10 @@ Installation
 Changelog
 ---------
 
+Version 0.1.7
+~~~~~~~~~~~~~
+
+-  Minor bug fixes
 
 Version 0.1.6
 ~~~~~~~~~~~~~
