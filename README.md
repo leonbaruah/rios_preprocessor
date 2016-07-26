@@ -1,7 +1,7 @@
 Homepages
 ---------
 
-Visit the `Landmark Information Group` homepage here: [landmark.co.uk](http://www.landmark.co.uk/). `Landmark Ecoservices` page coming soon!
+Visit the  `Landmark Ecoservices` homepage here: [landmark.co.uk](http://www.landmark.co.uk/landmark-energy-and-sustainability/ecoservices/).
 Visit the home of `RIOS` on the web: [naturalcapitalproject.org](http://www.naturalcapitalproject.org/software/#rios)
 
 Discuss
@@ -57,6 +57,10 @@ Questions about `RIOS` are picked up at the <a href="http://forums.naturalcapita
 If you have any questions or comments about `rios_preprocessor` specifically, you can contact me at [leon.baruah@landmark.co.uk](mailto:leon.baruah@landmark.co.uk).
 
 # Changelog
+
+## Version 0.1.7
+
+* Minor bug fixes
 
 ## Version 0.1.6
 
