@@ -1,5 +1,6 @@
 __version__ = '0.1.7'
 import types as _types
+import rios_preprocessor
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 from rios_preprocessor import (average_raster, 
@@ -37,7 +38,7 @@ for _attrname in dir(rios_preprocessor):
         __all__.append(_attrname)
 
 import logging
-logging.getLogger('rios_preprocessor').addHandler(logging.NullHandler())
+logging.basicConfig()
 
 del _attrname
 del _types

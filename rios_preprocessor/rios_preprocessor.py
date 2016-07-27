@@ -29,6 +29,10 @@ import pygeoprocessing as pygeo
 import pygeoprocessing.routing as pygrout
 import itertools
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 ################################################################################
 def get_objectives_list():
     '''
