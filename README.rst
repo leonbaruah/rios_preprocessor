@@ -1,14 +1,15 @@
 Homepages
 ---------
 
-Visit the ``Landmark Ecoservices`` homepage at
-`landmark.co.uk <http://www.landmark.co.uk/landmark-energy-and-sustainability/ecoservices/>`__
+Visit the  ``Viridian Logic`` homepage at 
+`viridianlogic.com <https://viridianlogic.com>`__
 
-Visit the home of ``RIOS`` on the web at
+Visit the home of ``RIOS`` on the web at 
 `naturalcapitalproject.org <http://www.naturalcapitalproject.org/software/#rios>`__
 
 Discuss
 ~~~~~~~
+Talk to us at Viridian Logic through `our website <http://viridianlogic.com/#contactus>`__
 
 Looking for a place to ask questions about RIOS? Check out the `Natural
 Capital Project forums <http://forums.naturalcapitalproject.org/index.php?p=/categories/rios>`_!
@@ -49,9 +50,9 @@ Dependencies
 -  pandas
 -  geopandas
 -  fiona
--  rasterio
+-  rasterio > 0.36
 -  shapely
--  pygeoprocessing
+-  pygeoprocessing ~= 0.3.3
 
 Installation
 ~~~~~~~~~~~~
@@ -60,6 +61,14 @@ Installation
 
 Changelog
 ---------
+
+Version 0.1.8
+~~~~~~~~~~~~~
+
+-  Deprecated GDAL style transforms in line with rasterio > 0.36
+-  Set upper limit on pygeoprocessing to retain flow algorithms
+-  Minor bug fixes
+
 
 Version 0.1.7
 ~~~~~~~~~~~~~
