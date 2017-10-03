@@ -1,4 +1,4 @@
-__version__ = '0.1.7'
+__version__ = '0.1.8'
 import types as _types
 import rios_preprocessor
 from pkgutil import extend_path
@@ -18,7 +18,8 @@ from rios_preprocessor import (average_raster,
                                get_objective_todo, 
                                get_objectives_list, 
                                get_output_objective_suffix, 
-                               get_pixels_within_radius,
+                               get_pixels_within_radius, 
+                               get_rios_coefficient_fieldnames, 
                                label_river_bank_buffers, 
                                label_river_banks, 
                                label_streams, 
