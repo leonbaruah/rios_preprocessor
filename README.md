@@ -59,6 +59,10 @@ If you have any questions or comments about `rios_preprocessor` specifically, yo
 
 # Changelog
 
+## Version 0.1.9
+
+* Fixed upslope source and riparian index getting affected by integer bug
+
 ## Version 0.1.8
 
 * Deprecated GDAL style transforms in line with rasterio > 0.36

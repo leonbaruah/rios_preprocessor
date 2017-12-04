@@ -62,6 +62,13 @@ Installation
 Changelog
 ---------
 
+
+Version 0.1.9
+~~~~~~~~~~~~~
+
+-  Fixed upslope source and riparian index getting affected by integer bug
+
+
 Version 0.1.8
 ~~~~~~~~~~~~~
 

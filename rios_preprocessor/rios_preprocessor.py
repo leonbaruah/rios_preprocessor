@@ -570,6 +570,8 @@ def derive_raster_from_lulc(lulc_raster_uri, lucode_field, lulc_coeff_df,
         this_ludata = lulc_coeff_df[lulc_coeff_df[lucode_field] == lucode]
         replacement_value = this_ludata[coeff_field].values[0]
         coeffraster[np.where(lulcdata == lucode)] = replacement_value
+    # make sure raster comes out as float dtype
+    lulcmeta['dtype'] = 'float32'
     with rasterio.open(output_raster_uri, 'w', **lulcmeta) as outputraster:
         outputraster.write_band(1, coeffraster.astype(lulcmeta['dtype']))
 
@@ -704,6 +706,7 @@ def average_raster(raster_uri_list=None, inverseraster_uri_list=None,
     # now calculate mean
     bad = np.where(divisiondata == 0)
     good = np.where(divisiondata > 0)
+    rastermeta['dtype'] = 'float32'
     meandata = np.zeros(rasterdata.shape, dtype=rastermeta['dtype'])
     meandata[good] = totaldata[good] / divisiondata[good]
     meandata[bad] = rastermeta['nodata']
