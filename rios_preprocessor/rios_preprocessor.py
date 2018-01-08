@@ -1,4 +1,4 @@
-'''
+"""
 # ------------------------------------------------------------------------------
 # rios_preprocessor.py
 # 
@@ -8,7 +8,7 @@
 # Performs the calculations necessary for producing input to the RIOS tool
 #
 # ------------------------------------------------------------------------------
-'''
+"""
 # Import system modules
 from __future__ import print_function
 # noinspection PyPep8
@@ -18,7 +18,7 @@ from os.path import basename
 from os.path import splitext
 from collections import OrderedDict
 import numpy as np
-import pandas
+import pandas as pd
 import geopandas as gpd
 import fiona
 import rasterio
@@ -34,29 +34,13 @@ logger = logging.getLogger(__name__)
 
 
 ################################################################################
-def get_objectives_list():
-    '''
-    Returns list of tuples: (1) RIOS objectives, 
-                            (2) their associated script flag, 
-                            (3) parameter prefixes, and 
-                            (4) short parameter prefixes
-    '''
-    return [tuple(['Erosion Control', 'do_erosion', 'erosion', 'er']),
-            tuple(['Phosphorus Retention', 'do_nutrient_p', 'phosphorus', 'p']),
-            tuple(['Nitrogen Retention', 'do_nutrient_n', 'nitrogen', 'n']),
-            tuple(['Flood Mitigation', 'do_flood', 'flood', 'fl']),
-            tuple(['Groundwater Recharge/Baseflow', 'do_gw_bf', 'gwater', 'gw'])
-            ]
-
-
-################################################################################
 def get_input_data():
-    '''
+    """
     Returns list of tuples: (1) dataset name with 
                             (2) corresponding initial of objective(s), 
                             (3) variable name in the main script, and 
                             (4) its expected type
-    '''
+    """
     return [tuple(["Land use/land cover", "EPNFG",
                    "lulc_raster_uri", "raster"]),
             tuple(["RIOS biophysical coefficient table", "EPNFG",
@@ -79,9 +63,9 @@ def get_input_data():
                    "aet_raster_uri", "raster"])]
 
 
-################################################################################
+###############################################################################
 def get_intermediate_objective_suffix(suffix=""):
-    '''
+    """
     Returns dictionary of dictionaries of suffixes to intermediate files.
     Dict contains:
         objective - initial(s) of corresponding objective(s)
@@ -90,7 +74,7 @@ def get_intermediate_objective_suffix(suffix=""):
     Args (optional) :
         suffix - appends the user defined suffix to the one used by the 
                  intermediate file
-    '''
+    """
     intsuffix = [tuple(["comb_weight_R", "EPN", "cwgt_r"]),
                  tuple(["comb_weight_Exp", "EPN", "cwgt_e"]),
                  tuple(["index_exp", "EPN", "ind_e"]),
@@ -113,9 +97,32 @@ def get_intermediate_objective_suffix(suffix=""):
     return inter
 
 
-################################################################################
+###############################################################################
+def get_intermediate_file(working_path, file_naming_convention,
+                          suffix=""):
+
+    file_name_dict = {"flowdir_channels" : "flowdir_channels",
+                      "slope_index" : "slope_idx",
+                      "erosivity_index" : "eros_idx",
+                      "erodibility_index" : "erod_idx",
+                      "soil_depth_norm" : "sdepth_norm",
+                      "soil_depth_index" : "sdepth_idx"}
+
+    if file_naming_convention not in file_name_dict.keys():
+        err_msg = "Could not find %s as intermediate file naming convention" \
+                  % file_naming_convention
+        logger.warning(err_msg)
+        raise IOError(err_msg)
+
+    file_id = file_name_dict[file_naming_convention]
+    file_name = '_'.join([file_id, suffix]).rstrip('_') + ".tif"
+
+    return working_path + file_name
+
+
+###############################################################################
 def get_output_objective_suffix(suffix=""):
-    '''
+    """
     Returns dictionary of dictionarys of suffixes to output files produced.
     Dict contains:
         objective - initial(s) of corresponding objective(s)
@@ -124,7 +131,7 @@ def get_output_objective_suffix(suffix=""):
     Args (optional) :
         suffix - appends the user defined suffix to one used by the output file
 
-    '''
+    """
     outsuffix = [tuple(["dret_index", "EPNFG", "downslope_retention_index"]),
                  tuple(["upslope_source", "EPNFG", "upslope_source"]),
                  tuple(["riparian_index", "EPNFG", "riparian_index"]),
@@ -140,9 +147,9 @@ def get_output_objective_suffix(suffix=""):
 
 ################################################################################
 def get_rios_coefficient_fieldnames():
-    '''
+    """
     Returns a dictionary of the field names in the RIOS coefficient table
-    '''
+    """
     rios_fields = {}
     rios_fields["landuse"] = "lucode"
     rios_fields["sedimentexport"] = "sed_exp"
@@ -156,38 +163,93 @@ def get_rios_coefficient_fieldnames():
 
     return rios_fields
 
+
 ################################################################################
 def get_input_data_to_objective():
-    '''
+    """
     Returns dictionary of all RIOS inputs in plain english and a string of the
     first letter(s) of each corresponding objective i.e., any combination of
     [E, P, N, F, G].
-    '''
+    """
     full_data_in = get_input_data()
     return dict([tuple([dat[0], dat[1]]) for dat in full_data_in])
 
 
 ################################################################################
 def get_input_data_param_dictionary():
-    '''
+    """
     Returns dictionary of input names for use within script. Dict indexed by 
     plain english description of dataset. 
     Dict contains:
         found - boolean whether parameter has been input
         param - script name for dataset 
         type - file format e.g. csv, raster
-    '''
+    """
     data_in = get_input_data()
     return OrderedDict([tuple([dat[0], {'found': False,
                                         'param': dat[2],
                                         'type': dat[3]}]) for dat in data_in])
 
 
+###############################################################################
+def get_objective_df():
+    """
+    Returns a dataframe of: (1) name: RIOS objective name,
+                            (2) flag: their associated script flag,
+                            (3) long_prefix: parameter prefixes,
+                            (4) short_prefix: short parameter prefixes, and
+                            (5) output_folder: RIOS folder name
+    Note that (5) is for reference use for usage post-RIOS run
+    """
+
+    columns = ['name', 'flag', 'long_prefix',
+               'short_prefix', 'output_folder']
+
+    er = ['Erosion Control', 'do_erosion', 'erosion',
+          'er', 'erosion_reservoir_control']
+    ph = ['Phosphorus Retention', 'do_nutrient_p', 'phosphorus',
+          'p', 'nutrient_retention_phosphorus']
+    ni = ['Nitrogen Retention', 'do_nutrient_n', 'nitrogen',
+          'n', 'nutrient_retention_nitrogen']
+    fl = ['Flood Mitigation', 'do_flood', 'flood',
+          'fl', 'flood_mitigation_impact']
+    gw = ['Groundwater Recharge/Baseflow', 'do_gw_bf', 'gwater',
+          'gw', 'groundwater_recharge']
+
+    obj_df = pd.DataFrame([er, ph, ni, fl, gw], columns=columns)
+
+    return obj_df
+
+
+################################################################################
+def get_objectives_list():
+    """
+    Returns list of tuples: (1) RIOS objectives,
+                            (2) their associated script flag,
+                            (3) parameter prefixes, and
+                            (4) short parameter prefixes
+    WARNING: will be deprecated... superceded by get_objective_df()
+    """
+    warn_txt = 'get_objectives_list() is superceded by get_objective_df()' \
+               + 'and will be deprecated'
+    logger.warning(warn_txt)
+    raise PendingDeprecationWarning(warn_txt)
+
+    outlist = []
+    obj_in = get_objective_df()
+    for name in obj_in['name']:
+        obj = obj_in[obj_in['name'] == name]
+        outlist.append(tuple([name, obj['flag'].item(),
+                              obj['long_prefix'].item(),
+                              obj['short_prefix'].item()]))
+    return outlist
+
+
 ################################################################################
 def get_objective_todo(do_erosion=False, do_nutrient_p=False,
                        do_nutrient_n=False, do_flood=False,
                        do_gw_bf=False):
-    '''
+    """
     Returns dictionary of all RIOS objectives to do, keyed by plain english 
     description.
     Dict contains:
@@ -202,21 +264,25 @@ def get_objective_todo(do_erosion=False, do_nutrient_p=False,
         do_flood        - boolean for Flood Control objective
         do_gw_bf        - boolean for Groundwater/Baseflow objective
 
-    '''
-    objective_in = get_objectives_list()
-    objective_out = []
-    for obj in objective_in:
-        objective_out.append(tuple([obj[0], {'found': locals()[obj[1]],
-                                             'longprefix': obj[2],
-                                             'shrtprefix': obj[3]}]))
-    return OrderedDict(objective_out)
+    """
+    obj_in = get_objective_df()
+    obj_out = []
+    for name in obj_in['name']:
+        this_obj = obj_in[obj_in['name'] == name]
+        obj_out.append(tuple([name,
+                             {'found': locals()[this_obj['flag'].item()],
+                              'longprefix': this_obj['long_prefix'].item(),
+                              'shrtprefix': this_obj['short_prefix'].item()}
+                              ]))
+
+    return OrderedDict(obj_out)
 
 
 ################################################################################
 def get_objective_dictionary(suffix='', do_erosion=False, do_nutrient_p=False,
                              do_nutrient_n=False, do_flood=False,
                              do_gw_bf=False):
-    '''
+    """
     Returns dictionary, keyed by objective, with status of whether objective 
     used, list of data sets required for objective and various objective
     specific inputs and outputs.
@@ -237,7 +303,7 @@ def get_objective_dictionary(suffix='', do_erosion=False, do_nutrient_p=False,
         do_flood        - boolean for Flood Control objective
         do_gw_bf        - boolean for Groundwater/Baseflow objective
 
-    '''
+    """
     objective_dict = OrderedDict()
     datainput = get_input_data_to_objective()
     objectiveinput = get_objective_todo(do_erosion=do_erosion,
@@ -283,7 +349,7 @@ def optimize_threshold_flowacc(flow_acc_raster_uri,
                                stream_length_multiplier=1.0,
                                aoi_shape_uri=None, suffix='', seedlen=1000,
                                streams_raster_uri=None, all_touched=True):
-    '''
+    """
     Calculates the pixel threshold (length in pixel units) at which the flow
     accumulation raster best describes the river in river shapefiles supplied
     (optionally multiplied by some factor).
@@ -310,7 +376,7 @@ def optimize_threshold_flowacc(flow_acc_raster_uri,
         streams_raster_uri          - output file for streams line raster
                                       (1 = stream pixel)
         all_touched                 - river shape rasterization flag
-    '''
+    """
 
     if hasattr(river_reference_shape_uri_list, 'format'):  # i.e. is a string
         river_reference_shape_uri_list = [river_reference_shape_uri_list]
@@ -440,7 +506,7 @@ def optimize_threshold_flowacc(flow_acc_raster_uri,
 ###############################################################################
 def define_channels(flow_dir_raster_uri, flow_dir_channels_raster_uri,
                     streams_raster_uri, nullvalue=None):
-    '''
+    """
     Set flow direction raster to some arbitrary value or null it out where there
     are streams.
     
@@ -454,7 +520,7 @@ def define_channels(flow_dir_raster_uri, flow_dir_channels_raster_uri,
     Args (optional):
         nullvalue   - value of null pixels in output raster 
 
-    '''
+    """
     # read in raster inputs    
     with rasterio.open(flow_dir_raster_uri, "r") as flow_dir_raster:
         flow_dir_data = flow_dir_raster.read(1)
@@ -477,7 +543,7 @@ def define_channels(flow_dir_raster_uri, flow_dir_channels_raster_uri,
 
 ###############################################################################
 def map_coefficients(lulc_raster_uri, lucode_field, rios_coeff_table):
-    '''
+    """
     Map general LULC classes and coefficient table to user's landcover raster.
     Returns a pandas dataframe of land uses (and accompanying coefficients) that
     appear in the raster.
@@ -486,19 +552,19 @@ def map_coefficients(lulc_raster_uri, lucode_field, rios_coeff_table):
         lulc_raster_uri     - path to land use (LU) raster
         lucode_field        - name of LU field code in RIOS coefficient table
         rios_coeff_table    - path to csv containing biophysical coefficients
-    '''
+    """
     # get LULC values in the lulc raster 
     with rasterio.open(lulc_raster_uri, 'r') as lulcraster:
       lulcrasterval = list(set(lulcraster.read(1).ravel()))
     # read in map coefficients table
-    lulc_coeffs = pandas.read_csv(rios_coeff_table)
+    lulc_coeffs = pd.read_csv(rios_coeff_table)
     # return only rows where lucode field values match those present in raster 
     return lulc_coeffs[lulc_coeffs[lucode_field].isin(lulcrasterval)]
 
 
 ###############################################################################
 def normalize(in_raster_uri, out_raster_uri):
-    '''
+    """
     Takes in raster file and outputs normalized raster.
     Will pull out null values from input and apply to output, if no null value
     in raster -> -9999
@@ -507,7 +573,7 @@ def normalize(in_raster_uri, out_raster_uri):
         in_raster_uri   - path to raster to be normalized
         out_raster_uri  - path to output normalized raster.
 
-    '''
+    """
     with rasterio.open(in_raster_uri, 'r') as rasterin:
         in_data = rasterin.read(1)
         in_meta = rasterin.meta
@@ -522,7 +588,7 @@ def normalize(in_raster_uri, out_raster_uri):
 
 ###############################################################################
 def normalize_array(raster_data, nullvalue=-9999.):
-    '''
+    """
     Normalize raster, using the max value for that raster.
     Returns map (numpy array) of normalized data
     
@@ -531,7 +597,7 @@ def normalize_array(raster_data, nullvalue=-9999.):
 
     Args (optional) : 
         nullvalue - array value of missing data
-    '''
+    """
 
     # get subset of array to normalize (exclude erroneous)
     val_to_norm = np.where(raster_data != nullvalue)
@@ -545,7 +611,7 @@ def normalize_array(raster_data, nullvalue=-9999.):
 ###############################################################################
 def derive_raster_from_lulc(lulc_raster_uri, lucode_field, lulc_coeff_df,
                             coeff_field, output_raster_uri):
-    '''
+    """
     Replacing the Lookup() function from the spatial analyst, this function
     takes in the lulc raster file, pandas table of rios coefficients and the
     name of the rios coefficient for which a map should be made.
@@ -561,7 +627,7 @@ def derive_raster_from_lulc(lulc_raster_uri, lucode_field, lulc_coeff_df,
         output_raster_uri   - path to output raster with spatial land cover
                               pixels given coefficient values
 
-    '''
+    """
     with rasterio.open(lulc_raster_uri, 'r') as lulcraster:
         lulcmeta = lulcraster.meta
         lulcdata = lulcraster.read(1)
@@ -570,6 +636,8 @@ def derive_raster_from_lulc(lulc_raster_uri, lucode_field, lulc_coeff_df,
         this_ludata = lulc_coeff_df[lulc_coeff_df[lucode_field] == lucode]
         replacement_value = this_ludata[coeff_field].values[0]
         coeffraster[np.where(lulcdata == lucode)] = replacement_value
+    # make sure raster comes out as float dtype
+    lulcmeta['dtype'] = 'float32'
     with rasterio.open(output_raster_uri, 'w', **lulcmeta) as outputraster:
         outputraster.write_band(1, coeffraster.astype(lulcmeta['dtype']))
 
@@ -648,7 +716,7 @@ def weighted_flow_accumulation(flow_direction_uri, dem_uri, flux_output_uri,
 ###############################################################################
 def average_raster(raster_uri_list=None, inverseraster_uri_list=None,
                    output_raster_uri='MEANRASTER.tif'):
-    '''
+    """
     Outputs a map of the the mean raster pixel values. Missing pixels are
     excluded from calculation.
     Allows inverse of rasters (1-raster) to contribute to mean
@@ -657,18 +725,18 @@ def average_raster(raster_uri_list=None, inverseraster_uri_list=None,
         raster_uri_list        - list of rasters to be added together
         inverseraster_uri_list - list of rasters where the values to be inversely added (1-raster)
         output_raster_uri      - name of the raster output file
-    '''
+    """
     if ((raster_uri_list is None) and (inverseraster_uri_list is None)):
         raise Exception('No rasters supplied to average_raster routine')
 
     # turn Nonetype values into empty lists ######
     if raster_uri_list is None:
         raster_uri_list = []
-    elif hasattr(raster_uri_list, 'format'):
+    if not isinstance(raster_uri_list, list):
         raster_uri_list = [raster_uri_list]
     if inverseraster_uri_list is None:
         inverseraster_uri_list = []
-    elif hasattr(inverseraster_uri_list, 'format'):
+    if not isinstance(inverseraster_uri_list, list):
         inverseraster_uri_list = [inverseraster_uri_list]
     ##############################################
 
@@ -704,6 +772,7 @@ def average_raster(raster_uri_list=None, inverseraster_uri_list=None,
     # now calculate mean
     bad = np.where(divisiondata == 0)
     good = np.where(divisiondata > 0)
+    rastermeta['dtype'] = 'float32'
     meandata = np.zeros(rasterdata.shape, dtype=rastermeta['dtype'])
     meandata[good] = totaldata[good] / divisiondata[good]
     meandata[bad] = rastermeta['nodata']
@@ -714,7 +783,7 @@ def average_raster(raster_uri_list=None, inverseraster_uri_list=None,
 
 ###############################################################################
 def get_neighbouring_pixels(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1), radius=1):
-    '''
+    """
     Yields coordinates of pixels in square surrounding this one, exclude edges.
     By default, outputs relative pixel coordinate positions around centre (0,0).
 
@@ -724,7 +793,7 @@ def get_neighbouring_pixels(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1), radius=1):
         xlim    - (minimum, maximum) tuple of x-coordinate pixels
         ylim    - (minimum, maximum) tuple of y-coordinate pixels
         radius  - number of pixels above/below (x,y) that are returned
-    '''
+    """
     intradius = int(np.ceil(radius))
     for dx, dy in (itertools.product((np.arange(-intradius, intradius+1)),
                                      (np.arange(-intradius, intradius+1)))):
@@ -737,7 +806,7 @@ def get_neighbouring_pixels(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1), radius=1):
 
 ###############################################################################
 def get_pixels_within_radius(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1), radius=1.):
-    '''
+    """
     Yields coordinates of pixels in circle surrounding this one, excluding edges.
     By default, spits out relative pixel coordinate positions around centre (0,0).
     Distances are measured from centre to pixel.
@@ -748,7 +817,7 @@ def get_pixels_within_radius(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1), radius=1.):
         xlim    - (minimum, maximum) tuple of x-coordinate pixels
         ylim    - (minimum, maximum) tuple of y-coordinate pixels
         radius  - distance from (x,y) in pixel units to fetch neighbours.
-    '''
+    """
     intradius = int(np.ceil(radius))
     for dx, dy in (itertools.product((np.arange(-intradius, intradius+1)),
                                      (np.arange(-intradius, intradius+1)))):
@@ -764,7 +833,7 @@ def get_pixels_within_radius(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1), radius=1.):
 ###############################################################################
 def pixel_neighbours_from_east(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1),
                                clockwise=False):
-    '''
+    """
     Returns coordinates neighbouring a single pixel in order from Easterly.
     Pixels defined relative to (0,0):
                                         (-1, 1) (0, 1) (1, 1)
@@ -778,7 +847,7 @@ def pixel_neighbours_from_east(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1),
         ylim        - (minimum, maximum) tuple of y-coordinate pixels
         clockwise   - if False: E -> NE -> N -> NW -> etc -> SE
                       if True:  E -> SE -> S -> SW -> etc -> NE
-    '''
+    """
     radian_circle = np.arange(0., 2. * np.pi, np.pi / 4.)
     coord_circle = []
     for rad in radian_circle:
@@ -795,7 +864,7 @@ def pixel_neighbours_from_east(x=0, y=0, xlim=(-1, 1), ylim=(-1, 1),
 
 ###############################################################################
 def map_pixels_next_to_river(streams_raster_uri, radius=1.99):
-    '''
+    """
     Read in a river raster and get coordinates of all pixels that neighbour the
     stream. Default radius covers the 8-directional neighbours in immediate
     vicinity of stream pixels.
@@ -809,7 +878,7 @@ def map_pixels_next_to_river(streams_raster_uri, radius=1.99):
         radius  - centre-to-centre pixel buffer to stream
                   N.B. the centres of diagonal neighbours are further than
                        adjacent ones
-    '''
+    """
     # read in the stream raster
     with rasterio.open(streams_raster_uri) as stream_raster:
         stream_data = stream_raster.read(1)
@@ -841,7 +910,7 @@ def map_pixels_next_to_river(streams_raster_uri, radius=1.99):
 
 ###############################################################################
 def get_end_pixels_of_river_raster(streams_raster_uri):
-    '''
+    """
     Find the ends (discontinuities) in a raster or rivers/streams. Stream
     terminators are simply the coordinates that only have one other pixel
     adjacent/diagonally-adjacent (or none for isolated stream pixel).
@@ -850,7 +919,7 @@ def get_end_pixels_of_river_raster(streams_raster_uri):
     Args :
         streams_raster_uri  - path to raster file of stream pixels
                               (expects stream pixels = 1)
-    '''
+    """
     # read in the river/stream data
     with rasterio.open(streams_raster_uri) as stream_raster:
         stream_data = stream_raster.read(1)
@@ -874,7 +943,7 @@ def get_end_pixels_of_river_raster(streams_raster_uri):
 ###############################################################################
 def label_streams(streams_raster_uri, labeled_streams_raster_uri=None,
                   relabel_streams=True):
-    '''
+    """
     Takes in a stream raster and gives each contiguous segment an arbitrary
     identification number 1,2,3... n.
     Returns a map (numpy array) where the stream pixels of the input raster file
@@ -883,7 +952,7 @@ def label_streams(streams_raster_uri, labeled_streams_raster_uri=None,
     Args :
         streams_raster_uri  - path to raster file of stream pixels
                               (expects stream pixels = 1)
-    '''
+    """
     # identify the riverends that need looking at
     end_to_check = get_end_pixels_of_river_raster(streams_raster_uri)
     # read in the stream raster
@@ -892,7 +961,7 @@ def label_streams(streams_raster_uri, labeled_streams_raster_uri=None,
         stream_meta = stream_raster.meta
 
     # see if this has been done already
-    if labeled_streams_raster_uri == None:
+    if labeled_streams_raster_uri is None:
         labeled_streams_raster_uri = \
             '_labeled'.join(os.path.splitext(streams_raster_uri))
 
@@ -901,11 +970,8 @@ def label_streams(streams_raster_uri, labeled_streams_raster_uri=None,
             stream_id = lstream_raster.read(1)
         label_mask = np.where(stream_id >= 1, 1, 0)
         stream_mask = np.where(stream_data >= 1, 1, 0)
-        if (label_mask == stream_mask).all() == True:
+        if (label_mask == stream_mask).all():
             return stream_id
-        else:
-            label_mask = None
-            stream_mask = None
 
     # make index in raster plane
     strdim = stream_data.shape
@@ -948,7 +1014,7 @@ def label_streams(streams_raster_uri, labeled_streams_raster_uri=None,
 
 ###############################################################################
 def label_river_banks(streams_raster_uri):
-    '''
+    """
     Identifies river banks with each bank given a unique ID. Banks are defined
     as those pixels that lie next to a  river, but do not adjunct the river end.
     Returns a map (numpy array) of river bank IDs.
@@ -957,7 +1023,7 @@ def label_river_banks(streams_raster_uri):
         streams_raster_uri  - path to raster file of stream pixels
                              (expects stream pixels = 1)
 
-    '''
+    """
     # Get all the pixels next to the river(s)
 
     logger.info('\t\tIdentifying map pixels next to river')
@@ -1180,7 +1246,7 @@ def label_river_banks(streams_raster_uri):
 
 ###############################################################################
 def label_river_bank_buffers(streams_raster_uri, map_buffer=45.):
-    '''
+    """
     Calculates two maps (numpy arrays) from the stream raster, a uniquely ID'd
     set of river banks (buffered out to the distance requested), and a second
     map where pixels that are equidistant  from two banks are given the ID of
@@ -1194,7 +1260,7 @@ def label_river_bank_buffers(streams_raster_uri, map_buffer=45.):
     Args (optional) :
         map_buffer - buffer length in metres (raster unit not n_pixels) of
                      river bank. Default = 45m
-    '''
+    """
 
     # read in the stream raster
     with rasterio.open(streams_raster_uri, 'r') as stream_raster:
@@ -1295,7 +1361,7 @@ def label_river_bank_buffers(streams_raster_uri, map_buffer=45.):
 ###############################################################################
 def calculate_riparian_index(streams_raster_uri, retention_index_uri,
                              output_riparian_index_uri, map_buffer=45.):
-    '''
+    """
     Fulfils purpose of the riparian_index routine from RIOS_Pre_Processing.py
     Calculates maximum riparian retention index (average of 3x3 pixel matrix
     around river bank pixel) in river bank and saves to file.
@@ -1310,7 +1376,12 @@ def calculate_riparian_index(streams_raster_uri, retention_index_uri,
     Args (optional) :
         map_buffer - buffer length in metres (raster unit not n_pixels) of
                      river bank. Default = 45m
-    '''
+    """
+    logger.debug("\tCreating riparian index...")
+
+    if os.path.exists(output_riparian_index_uri):
+        return None
+
     # get and identify the buffered banks
     str_buffer = str(int(map_buffer)) + 'm'
     buffered_bank_raster_uri = (str_buffer+'bufferbank').join(splitext(streams_raster_uri))
@@ -1368,7 +1439,7 @@ def calculate_riparian_index(streams_raster_uri, retention_index_uri,
 ###############################################################################
 def raster_value_to_index(input_raster_uri, output_raster_uri, value_bounds,
                           replacement_index):
-    '''
+    """
     Takes raster of continuous data and replaces values within/outside various
     bounding values with indices. Note that the number of indices should be one
     more than the number of boundaries.
@@ -1380,7 +1451,7 @@ def raster_value_to_index(input_raster_uri, output_raster_uri, value_bounds,
                         form the boundary values to index
         output_riparian_index_uri - output path to raster file of riparian index
 
-    '''
+    """
 
     if hasattr(replacement_index, 'sort'):
         replacement_index = np.array(replacement_index)
@@ -1420,6 +1491,501 @@ def raster_value_to_index(input_raster_uri, output_raster_uri, value_bounds,
 
 
 ###############################################################################
+def is_projection_consistent(input_raster_list, reference_raster):
+
+
+    with rasterio.open(reference_raster, 'r') as refdata:
+        refprojectionwkt = refdata.crs.wkt
+
+    refprojectionname = re.findall('\".*?\"', refprojectionwkt)[0]
+    logger.info("%s projected as %s" % (os.path.basename(reference_raster),
+                                        refprojectionname))
+    projectionconsistent = True
+
+    for inraster in input_raster_list:
+        with rasterio.open(inraster, 'r') as rasterdata:
+            rasterprojectionwkt = rasterdata.crs.wkt
+        if refprojectionwkt != rasterprojectionwkt:
+            logger.error(inraster + " does not appear to be projected as "
+                         + refprojectionname)
+            logger.error(basename(inraster) + "projected as "
+                         + rasterprojectionwkt)
+            projectionconsistent = False
+
+    return projectionconsistent
+
+
+###############################################################################
+def hydro_naming_convention(output_path, source_uri, hydro_suffix):
+
+    new_file = basename(hydro_suffix.join(splitext(source_uri)))
+    return output_path + new_file
+
+###############################################################################
+def create_hydro_layers(hydro_path, dem_raster_uri, flow_dir_raster_uri=None,
+                        slope_raster_uri=None, flow_acc_raster_uri=None):
+
+    # Create flow direction raster
+    if flow_dir_raster_uri is None:
+        flow_dir_raster_uri = \
+            hydro_naming_convention(hydro_path, dem_raster_uri,  "_flow_dir")
+    if not os.path.exists(flow_dir_raster_uri):
+        logger.debug("Calculating Flow Direction raster")
+        pygrout.routing.flow_direction_d_inf(dem_raster_uri,
+                                             flow_dir_raster_uri)
+
+    # Create slope raster
+    if slope_raster_uri is None:
+        slope_raster_uri = \
+            hydro_naming_convention(hydro_path, dem_raster_uri, "_slope")
+    if not os.path.exists(slope_raster_uri):
+        logger.debug("Calculating Slope raster")
+        pygeo.calculate_slope(dem_raster_uri, slope_raster_uri,
+                              aoi_uri=None)
+
+    # Create flow accumulation raster
+    if flow_acc_raster_uri is None:
+        flow_acc_raster_uri = \
+            hydro_naming_convention(hydro_path, dem_raster_uri, "_flow_acc")
+    if not os.path.exists(flow_acc_raster_uri):
+        logger.debug("Calculating Flow Accumulation raster")
+        pygrout.routing.flow_accumulation(flow_dir_raster_uri, dem_raster_uri,
+                                          flow_acc_raster_uri)
+        change_geotiff_nodata_value(flow_acc_raster_uri, new_nodata=-9999)
+
+
+###############################################################################
+def check_streams_raster_sourcedata(streams_raster_uri,
+                                    river_reference_shape_uri_list):
+
+    if not os.path.exists(streams_raster_uri):
+        logger.warning("No streams raster supplied")
+
+    err_msg = "Missing streams raster (%s) and no shapefiles supplied" \
+              % basename(streams_raster_uri)
+    if river_reference_shape_uri_list is None:
+        logger.error(err_msg)
+        raise IOError(err_msg)
+    elif len(river_reference_shape_uri_list) == 0:
+        logger.error(err_msg)
+        raise IOError(err_msg)
+
+
+###############################################################################
+def burn_stream_into_flowdir_channels(flow_dir_raster_uri, streams_raster_uri,
+                                      flow_dir_channels_raster_uri):
+
+    # Set flow direction raster to null where there are streams
+    logger.info("Defining flow direction channels...")
+    if not os.path.exists(flow_dir_channels_raster_uri):
+        define_channels(flow_dir_raster_uri,
+                        flow_dir_channels_raster_uri,
+                        streams_raster_uri)
+
+
+###############################################################################
+def calculate_slope_index(slope_raster_uri, slope_index_uri):
+
+    logger.debug("\tCreating slope index..." + time.asctime())
+
+    # Slope index - binned, not normalized
+    value_bounds = [5.0, 10.0]
+    replacement_index = [0.33, 0.66, 1.0]
+
+    if not os.path.exists(slope_index_uri):
+        raster_value_to_index(slope_raster_uri, slope_index_uri,
+                              value_bounds, replacement_index)
+
+
+###############################################################################
+def calculate_downslope_retention(weight_uri_list, inverseweight_uri_list,
+                                  combined_weight_retention_uri,
+                                  flow_dir_raster_uri, streams_raster_uri,
+                                  downslope_ret_flowlen_uri):
+
+    if not isinstance(weight_uri_list, list):
+        weight_uri_list = [weight_uri_list]
+
+    if not isinstance(inverseweight_uri_list, list):
+        inverseweight_uri_list = [inverseweight_uri_list]
+
+    if not os.path.exists(combined_weight_retention_uri):
+        average_raster(raster_uri_list=weight_uri_list,
+                       inverseraster_uri_list=inverseweight_uri_list,
+                       output_raster_uri=combined_weight_retention_uri)
+
+    ## Downslope retention index
+    if not os.path.exists(downslope_ret_flowlen_uri):
+        pygrout.routing.distance_to_stream(flow_dir_raster_uri,
+            streams_raster_uri, downslope_ret_flowlen_uri,
+            factor_uri=combined_weight_retention_uri)
+
+
+###############################################################################
+def calculate_downslope_retention_index(weight_uri_list,
+        inverseweight_uri_list, combined_weight_retention_uri,
+        flow_dir_raster_uri, streams_raster_uri,
+        downslope_ret_flowlen_uri, downslope_ret_index_uri):
+
+    logger.debug("\tCreating downslope retention index...")
+
+    calculate_downslope_retention(weight_uri_list, inverseweight_uri_list,
+                                  combined_weight_retention_uri,
+                                  flow_dir_raster_uri, streams_raster_uri,
+                                  downslope_ret_flowlen_uri)
+
+    if not os.path.exists(downslope_ret_index_uri):
+        normalize(downslope_ret_flowlen_uri, downslope_ret_index_uri)
+
+
+###############################################################################
+def calculate_upslope_source(weight_uri_list, inverseweight_uri_list,
+                             combined_weight_source_uri, flow_dir_raster_uri,
+                             dem_raster_uri, upslope_source_uri):
+
+    logger.debug("\tCreating upslope source...")
+
+    if not isinstance(weight_uri_list, list):
+        weight_uri_list = [weight_uri_list]
+
+    if not isinstance(inverseweight_uri_list, list):
+        inverseweight_uri_list = [inverseweight_uri_list]
+
+    # Combined weight source
+    if not os.path.exists(combined_weight_source_uri):
+        average_raster(raster_uri_list=weight_uri_list,
+                       inverseraster_uri_list=inverseweight_uri_list,
+                       output_raster_uri=combined_weight_source_uri)
+
+    ## Upslope source flow accumulation
+    if not os.path.exists(upslope_source_uri):
+        weighted_flow_accumulation(flow_dir_raster_uri,
+                                   dem_raster_uri,
+                                   upslope_source_uri,
+                                   source_weight_uri=combined_weight_source_uri)
+
+###############################################################################
+def process_flood_mitigation(intermediate_files, output_files,
+                             working_path, output_path,
+                             lulc_raster_uri, lulc_coeff_df, rios_fields,
+                             dem_raster_uri, flow_dir_raster_uri,
+                             slope_raster_uri, streams_raster_uri,
+                             precip_month_raster_uri, soil_texture_raster_uri,
+                             river_buffer_dist=20.):
+
+    flood_index_cover = working_path + intermediate_files['index_cover']
+    flood_index_rough = working_path + intermediate_files['index_rough']
+    flood_riparian_index = output_path + output_files['riparian_index']
+    flood_slope_index = output_path + output_files['slope_index']
+    flood_comb_weight_R = working_path + intermediate_files['comb_weight_ret']
+    flood_dret_flowlen = working_path + intermediate_files['dret_flowlen']
+    flood_dret_index = output_path + output_files['dret_index']
+    flood_rainfall_depth_index = working_path + intermediate_files['rainfall_depth_index']
+    flood_comb_weight_source = working_path + intermediate_files['comb_weight_source']
+    flood_upslope_source = output_path + output_files['upslope_source']
+
+
+    logger.info("Processing Flood Mitigation objective...")
+
+    # Make Cover and Roughness Index rasters
+    if not os.path.exists(flood_index_cover):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["cover"],
+                                flood_index_cover)
+
+    if not os.path.exists(flood_index_rough):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["roughness"],
+                                flood_index_rough)
+
+    # Make other index rasters as necessary
+    if not os.path.exists(flood_rainfall_depth_index):
+        normalize(precip_month_raster_uri, flood_rainfall_depth_index)
+
+    # Riparian continuity
+    calculate_riparian_index(streams_raster_uri=streams_raster_uri,
+                             retention_index_uri=flood_index_rough,
+                             output_riparian_index_uri=flood_riparian_index,
+                             map_buffer=river_buffer_dist)
+    logger.info("\t... created Flood Mitigation riparian continuity index: "
+                + basename(flood_riparian_index))
+
+    # Slope Index
+    calculate_slope_index(slope_raster_uri, flood_slope_index)
+    logger.info("\t... created Flood slope index: "
+                + basename(flood_slope_index))
+
+    # Downslope Retention Index
+    calculate_downslope_retention_index(flood_index_rough, flood_slope_index,
+            flood_comb_weight_R, flow_dir_raster_uri, streams_raster_uri,
+            flood_dret_flowlen, flood_dret_index)
+    logger.info("\t... created Flood Mitigation downslope retention index: "
+                + basename(flood_dret_index))
+
+    # Upslope Source
+    fl_weight = [flood_rainfall_depth_index,
+                 soil_texture_raster_uri,
+                 flood_slope_index]
+    fl_inverse_weight = [flood_index_cover, flood_index_rough]
+    calculate_upslope_source(fl_weight, fl_inverse_weight,
+                             flood_comb_weight_source, flow_dir_raster_uri,
+                             dem_raster_uri, flood_upslope_source)
+    logger.info("\t... created Flood Mitigation upslope source: "
+                + basename(flood_upslope_source))
+
+
+###############################################################################
+def process_erosion_control(intermediate_files, output_files,
+                            working_path, output_path,
+                            lulc_raster_uri, lulc_coeff_df, rios_fields,
+                            dem_raster_uri, flow_dir_raster_uri,
+                            slope_index_uri, streams_raster_uri,
+                            erosivity_raster_uri, erosivity_index_uri,
+                            erodibility_raster_uri, erodibility_index_uri,
+                            soil_depth_index_uri, river_buffer_dist=20.):
+
+    erosion_index_exp = working_path + intermediate_files['index_exp']
+    erosion_index_ret = working_path + intermediate_files['index_ret']
+    erosion_comb_weight_R = working_path + intermediate_files['comb_weight_R']
+    erosion_dret_flowlen = working_path + intermediate_files['dret_flowlen']
+    erosion_comb_weight_Exp = working_path + intermediate_files['comb_weight_Exp']
+    erosion_dret_index = output_path + output_files['dret_index']
+    erosion_upslope_source = output_path + output_files['upslope_source']
+    erosion_riparian_index = output_path + output_files['riparian_index']
+
+    logger.info("Processing Erosion Control objective...")
+
+    # Make Export and Retention Index rasters
+    if not os.path.exists(erosion_index_exp):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["sedimentexport"],
+                                erosion_index_exp)
+
+    if not os.path.exists(erosion_index_ret):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["sedimentretention"],
+                                erosion_index_ret)
+
+    # Make other index rasters as necessary #########################
+    if not os.path.exists(erosivity_index_uri): # Erosivity index
+        normalize(erosivity_raster_uri, erosivity_index_uri)
+    if not os.path.exists(erodibility_index_uri): # Erodibility index
+        normalize(erodibility_raster_uri, erodibility_index_uri)
+
+    # Riparian continuity
+    calculate_riparian_index(streams_raster_uri=streams_raster_uri,
+                             retention_index_uri=erosion_index_ret,
+                             output_riparian_index_uri=erosion_riparian_index,
+                             map_buffer=river_buffer_dist)
+    logger.info("\tCreated Erosion Control riparian continuity index: "
+                + basename(erosion_riparian_index))
+
+    # Downslope Retention Index
+    calculate_downslope_retention_index(erosion_index_ret, slope_index_uri,
+            erosion_comb_weight_R, flow_dir_raster_uri, streams_raster_uri,
+            erosion_dret_flowlen, erosion_dret_index)
+    logger.info("\t... created Erosion Control downslope retention index: "
+                + basename(erosion_dret_index))
+
+    # Upslope Source
+    er_weight = [slope_index_uri, erosivity_index_uri, erodibility_index_uri,
+                 soil_depth_index_uri, erosion_index_exp]
+    calculate_upslope_source(er_weight, erosion_index_ret,
+                             erosion_comb_weight_Exp, flow_dir_raster_uri,
+                             dem_raster_uri, erosion_upslope_source)
+    logger.info("\tCreated Erosion Control upslope source: "
+                + basename(erosion_upslope_source))
+
+
+###############################################################################
+def process_phosphorus_retention(intermediate_files, output_files,
+                                 working_path, output_path,
+                                 lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                 dem_raster_uri, flow_dir_raster_uri,
+                                 slope_index_uri, streams_raster_uri,
+                                 erosivity_raster_uri, erosivity_index_uri,
+                                 erodibility_raster_uri, erodibility_index_uri,
+                                 soil_depth_index_uri, river_buffer_dist=20.):
+
+    phosphorus_index_exp = working_path + intermediate_files['index_exp']
+    phosphorus_index_ret = working_path + intermediate_files['index_ret']
+    phosphorus_comb_weight_R = working_path + intermediate_files['comb_weight_R']
+    phosphorus_dret_flowlen = working_path + intermediate_files['dret_flowlen']
+    phosphorus_dret_index = output_path + output_files['dret_index']
+    phosphorus_comb_weight_Exp = working_path + intermediate_files['comb_weight_Exp']
+    phosphorus_upslope_source = output_path + output_files['upslope_source']
+    phosphorus_riparian_index = output_path + output_files['riparian_index']
+
+    logger.info("Processing Phosphorus Retention objective...")
+
+    # Make Export and Retention Index rasters
+    if not os.path.exists(phosphorus_index_exp):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["phosphateexport"],
+                                phosphorus_index_exp)
+    if not os.path.exists(phosphorus_index_ret):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["phosphateretention"],
+                                phosphorus_index_ret)
+
+    # Make other index rasters as necessary #########################
+    if not os.path.exists(erosivity_index_uri): # Erosivity index
+        normalize(erosivity_raster_uri, erosivity_index_uri)
+    if not os.path.exists(erodibility_index_uri): # Erodibility index
+        normalize(erodibility_raster_uri, erodibility_index_uri)
+
+    # Riparian continuity
+    calculate_riparian_index(streams_raster_uri=streams_raster_uri,
+                             retention_index_uri=phosphorus_index_ret,
+                             output_riparian_index_uri=phosphorus_riparian_index,
+                             map_buffer=river_buffer_dist)
+    logger.info("\tCreated Phosphorus riparian continuity index: "
+                + basename(phosphorus_riparian_index))
+
+    # Downslope Retention Index
+    calculate_downslope_retention_index(phosphorus_index_ret, slope_index_uri,
+            phosphorus_comb_weight_R, flow_dir_raster_uri, streams_raster_uri,
+            phosphorus_dret_flowlen, phosphorus_dret_index)
+    logger.info("\t... created Phosphorus downslope retention index: "
+                + basename(phosphorus_dret_index))
+
+    # Upslope Source
+    ph_weight = [slope_index_uri, erosivity_index_uri, erodibility_index_uri,
+                 soil_depth_index_uri, phosphorus_index_exp]
+    calculate_upslope_source(ph_weight, phosphorus_index_ret,
+                             phosphorus_comb_weight_Exp, flow_dir_raster_uri,
+                             dem_raster_uri, phosphorus_upslope_source)
+    logger.info("\tCreated Phosphorus upslope source: "
+                + basename(phosphorus_upslope_source))
+
+
+###############################################################################
+def process_nitrogen_retention(intermediate_files, output_files,
+                               working_path, output_path,
+                               lulc_raster_uri, lulc_coeff_df, rios_fields,
+                               dem_raster_uri, flow_dir_raster_uri,
+                               slope_index_uri, streams_raster_uri,
+                               soil_depth_index_uri, river_buffer_dist=20.):
+
+    nitrogen_index_exp = working_path + intermediate_files['index_exp']
+    nitrogen_index_ret = working_path + intermediate_files['index_ret']
+    nitrogen_comb_weight_R = working_path + intermediate_files['comb_weight_R']
+    nitrogen_dret_flowlen = working_path + intermediate_files['dret_flowlen']
+    nitrogen_dret_index = output_path + output_files['dret_index']
+    nitrogen_comb_weight_Exp = working_path + intermediate_files['comb_weight_Exp']
+    nitrogen_upslope_source = output_path + output_files['upslope_source']
+    nitrogen_riparian_index = output_path + output_files['riparian_index']
+
+    logger.info("Processing Nitrogen Retention objective...")
+
+    # Make Export and Retention Index rasters
+    if not os.path.exists(nitrogen_index_exp):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["nitrateexport"],
+                                nitrogen_index_exp)
+    if not os.path.exists(nitrogen_index_ret):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["nitrateretention"],
+                                nitrogen_index_ret)
+
+    # Riparian continuity
+    calculate_riparian_index(streams_raster_uri=streams_raster_uri,
+                             retention_index_uri=nitrogen_index_ret,
+                             output_riparian_index_uri=nitrogen_riparian_index,
+                             map_buffer=river_buffer_dist)
+    logger.info("\tCreated Nitrogen riparian continuity index: "
+                + basename(nitrogen_riparian_index))
+
+    # Downslope Retention Index
+    calculate_downslope_retention_index(nitrogen_index_ret, slope_index_uri,
+            nitrogen_comb_weight_R, flow_dir_raster_uri, streams_raster_uri,
+            nitrogen_dret_flowlen, nitrogen_dret_index)
+    logger.info("\t... created Nitrogen downslope retention index: "
+                + basename(nitrogen_dret_index))
+
+    # Upslope Source
+    ni_weight = [slope_index_uri, soil_depth_index_uri, nitrogen_index_exp]
+    calculate_upslope_source(ni_weight, nitrogen_index_ret,
+                             nitrogen_comb_weight_Exp, flow_dir_raster_uri,
+                             dem_raster_uri, nitrogen_upslope_source)
+    logger.info("\tCreated Nitrogen upslope source: "
+                + basename(nitrogen_upslope_source))
+
+
+###############################################################################
+def process_groundwater_recharge(intermediate_files, output_files,
+                                 working_path, output_path,
+                                 lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                 dem_raster_uri, flow_dir_raster_uri,
+                                 slope_raster_uri, streams_raster_uri,
+                                 precip_annual_raster_uri, aet_raster_uri,
+                                 soil_depth_index_uri,
+                                 soil_texture_raster_uri,
+                                 flood_objective):
+
+    gwater_precip_annual_index = working_path + intermediate_files['precip_annual_index']
+    gwater_aet_index = working_path + intermediate_files['aet_index']
+    gwater_comb_weight_source = working_path + intermediate_files['comb_weight_source']
+    gwater_upslope_source = output_path + output_files['upslope_source']
+    if flood_objective["found"]: # use flood files if processing at same time
+        gwater_index_cover = working_path + flood_objective["intermediate"]['index_cover']
+        gwater_index_rough = working_path + flood_objective["intermediate"]['index_rough']
+        gwater_slope_index = output_path + flood_objective["output"]['slope_index']
+        gwater_comb_weight_R = working_path + flood_objective["intermediate"]['comb_weight_ret']
+        gwater_dret_flowlen = working_path + flood_objective["intermediate"]['dret_flowlen']
+        gwater_dret_index = output_path + flood_objective["output"]['dret_index']
+    else:
+        gwater_index_cover = working_path + intermediate_files['index_cover']
+        gwater_index_rough = working_path + intermediate_files['index_rough']
+        gwater_slope_index = output_path + output_files['slope_index']
+        gwater_comb_weight_R = working_path + intermediate_files['comb_weight_ret']
+        gwater_dret_flowlen = working_path + intermediate_files['dret_flowlen']
+        gwater_dret_index = output_path + output_files['dret_index']
+
+    logger.info("Processing Groundwater Recharge/Baseflow objective...")
+
+    # Make Cover and Roughness Index rasters
+    if not os.path.exists(gwater_index_cover):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["cover"],
+                                gwater_index_cover)
+
+    if not os.path.exists(gwater_index_rough):
+        derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
+                                lulc_coeff_df, rios_fields["roughness"],
+                                gwater_index_rough)
+
+    # Make other index rasters as necessary
+    if not os.path.exists(gwater_precip_annual_index): # Annual average precipitation index
+        normalize(precip_annual_raster_uri, gwater_precip_annual_index)
+    if not os.path.exists(gwater_aet_index): # Actual Evapotranspiration index
+        normalize(aet_raster_uri, gwater_aet_index)
+
+    # Slope Index
+    calculate_slope_index(slope_raster_uri, gwater_slope_index)
+    logger.info("\t... created Groundwater slope index: "
+                + basename(gwater_slope_index))
+
+    # Downslope Retention Index
+    calculate_downslope_retention_index(gwater_index_rough, gwater_slope_index,
+            gwater_comb_weight_R, flow_dir_raster_uri, streams_raster_uri,
+            gwater_dret_flowlen, gwater_dret_index)
+    logger.info("\t... created Groundwater downslope retention index: "
+                + basename(gwater_dret_index))
+
+    # Upslope Source
+    gw_weight = [gwater_precip_annual_index, soil_texture_raster_uri,
+                 gwater_slope_index, soil_depth_index_uri]
+    gw_inverse_weight = [gwater_aet_index, gwater_index_cover,
+                         gwater_index_rough]
+    calculate_upslope_source(gw_weight, gw_inverse_weight,
+                             gwater_comb_weight_source, flow_dir_raster_uri,
+                             dem_raster_uri, gwater_upslope_source)
+    logger.info("\t... created Groundwater upslope source: "
+                + basename(gwater_upslope_source))
+
+
+###############################################################################
 ###############################################################################
 def main(working_path, output_path, hydro_path, rios_coeff_table,
          lulc_raster_uri, dem_raster_uri,
@@ -1429,11 +1995,12 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
          aet_raster_uri=None,
          river_buffer_dist=45., suffix="",
          aoi_shape_uri=None, river_reference_shape_uri_list=None,
-         streams_raster_uri=None,
+         flow_dir_raster_uri=None, slope_raster_uri=None,
+         flow_acc_raster_uri=None, streams_raster_uri=None,
          do_erosion=False, do_nutrient_p=False, do_nutrient_n=False,
          do_flood=False, do_gw_bf=False,
          clean_intermediate_files=False):
-    '''
+    """
     The main process that replaces the ArcGIS RIOS_Pre_Processing script.
     It calculates the inputs for the RIOS IPA program such as
     downslope retention index, upslope source, riparian index,
@@ -1480,37 +2047,45 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
         
         [Misc]
         clean_intermediate_files - deletes intermediate files produced
-    '''
+    """
+
+###############################################################################
     # get basic setups for objectives and datasets
-    objective = get_objective_dictionary(suffix=suffix,
-                                         do_erosion=do_erosion,
-                                         do_nutrient_p=do_nutrient_p,
-                                         do_nutrient_n=do_nutrient_n,
-                                         do_flood=do_flood,
-                                         do_gw_bf=do_gw_bf)
+    objective = get_objective_dictionary(
+        suffix=suffix, do_erosion=do_erosion, do_nutrient_p=do_nutrient_p,
+        do_nutrient_n=do_nutrient_n, do_flood=do_flood, do_gw_bf=do_gw_bf)
     input_data = get_input_data_param_dictionary()
+
 
     # make a bunch of lists to keep logs
     parameter_log = []  # replacement for parameters file to be written
-
     # With parameters log; later write input parameter values to an output file
     parameter_log.append("Date and Time: " + time.strftime("%Y-%m-%d %H:%M"))
+    logger.info(parameter_log[-1])
     logger.info("Validating arguments...")
 
+###############################################################################
     # Log whether we calculate inputs for the objectives
     for obj in objective:
         parameter_log.append("Calculate for %s: %s" %
                              (obj, str(objective[obj]['found']).lower()))
+        logger.info(parameter_log[-1])
+
+###############################################################################
     # Directory where output files will be written
     working_path = os.path.normpath(working_path) + os.sep
     parameter_log.append("Workspace: " + working_path)
+    logger.info(parameter_log[-1])
     output_path = os.path.normpath(output_path) + os.sep
     parameter_log.append("Output path: " + output_path)
+    logger.info(parameter_log[-1])
     # Describe what the data is
     for indata in input_data:
         this_param = locals()[input_data[indata]['param']]
         parameter_log.append(("%s: %s" % (indata, this_param)))
-        if ("".join(this_param.split()) != "") and ("".join(this_param.split()) != "#"):
+        logger.info(parameter_log[-1])
+        if ("".join(this_param.split()) != "") and \
+                ("".join(this_param.split()) != "#"):
             input_data[indata]['found'] = True
 
     # suffix to add to end of output filenames, as <filename>_<suffix>
@@ -1521,6 +2096,7 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
         suffix = ""
     # note: add the underscore when needed, not before
 
+###############################################################################
     # Make sure that required inputs are provided for each objective chosen
     input_raster_list = []
     missing_data = False
@@ -1533,7 +2109,8 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
                     # .. and if it's a raster
                     if locals()[input_data[dataset]['param']].endswith('tif'):
                         # ... save it to our list
-                        input_raster_list.append(locals()[input_data[dataset]['param']])
+                        input_raster_list.append(
+                            locals()[input_data[dataset]['param']])
                 else:
                     logger.error("Missing Data: %s %s required for %s" %
                                  (dataset, input_data[dataset]['type'], obj))
@@ -1553,12 +2130,18 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
     # Output files
 
     # Intermediate files that are not objective specific
-    flow_dir_channels_raster_uri = working_path + "flowdir_channels_" + suffix + ".tif"
-    slope_index_uri = working_path + "slope_idx_" + suffix + ".tif"
-    erosivity_index_uri = working_path + "eros_idx_" + suffix + ".tif"
-    erodibility_index_uri = working_path + "erod_idx_" + suffix + ".tif"
-    soil_depth_norm_raster_uri = working_path + "sdepth_norm_" + suffix + ".tif"
-    soil_depth_index_uri = working_path + "sdepth_idx_" + suffix + ".tif"
+    flow_dir_channels_raster_uri = get_intermediate_file(working_path,
+                                   "flowdir_channels", suffix=suffix)
+    slope_index_uri = get_intermediate_file(working_path,
+                      "slope_index", suffix=suffix)
+    erosivity_index_uri = get_intermediate_file(working_path,
+                          "erosivity_index", suffix=suffix)
+    erodibility_index_uri = get_intermediate_file(working_path,
+                            "erodibility_index", suffix=suffix)
+    soil_depth_norm_raster_uri = get_intermediate_file(working_path,
+                                 "soil_depth_norm", suffix=suffix)
+    soil_depth_index_uri = get_intermediate_file(working_path,
+                           "soil_depth_index", suffix=suffix)
 
     # Field names in RIOS coefficient table
     rios_fields = get_rios_coefficient_fieldnames()
@@ -1579,86 +2162,52 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
 ###############################################################################
     # Start using geoprocessor for stuff
 
-    # Check input raster projections - they should all be the same
-    logger.debug("Checking input raster projections...")
+    prj_good = is_projection_consistent(input_raster_list, dem_raster_uri)
 
-    # Let's just enforce the DEM projection
-    with rasterio.open(dem_raster_uri, 'r') as DEMdata:
-        DEMprojectionwkt = DEMdata.crs.wkt
+    if not prj_good:
+        err_msg = "Input rasters must be in the same projection"
+        logger.error(err_msg)
+        raise AssertionError(err_msg)
 
-    demprojectionname = re.findall('\".*?\"', DEMprojectionwkt)[0]
-    logger.info("DEM projected as %s" % demprojectionname)
-    errorprojection = False
-
-    for inraster in input_raster_list:
-        with rasterio.open(inraster, 'r') as rasterdata:
-            rasterprojectionwkt = rasterdata.crs.wkt
-            if DEMprojectionwkt != rasterprojectionwkt:
-                logger.error(inraster + " does not appear to be projected as "
-                             + demprojectionname)
-                logger.error(basename(inraster) + "projected as "
-                             + rasterprojectionwkt)
-                errorprojection = True
-
-    if errorprojection:
-        raise AssertionError("Input rasters must be in the same projection")
-    del errorprojection
-
-    ###########################################################################
+###############################################################################
     # Preprocess DEM derivatives for hydrological routing
     logger.info("Creating hydrology layers...")
-
-    # Create flow direction raster
-    flow_dir_raster_uri = hydro_path + basename("_flow_dir".join(splitext(dem_raster_uri)))
-    if not os.path.exists(flow_dir_raster_uri):
-        logger.debug("Calculating Flow Direction raster")
-        pygrout.routing.flow_direction_d_inf(dem_raster_uri, flow_dir_raster_uri)
-
-    # Create slope raster
-    slope_raster_uri = hydro_path + basename("_slope".join(splitext(dem_raster_uri)))
-    if not os.path.exists(slope_raster_uri):
-        logger.debug("Calculating Slope raster")
-        pygeo.calculate_slope(dem_raster_uri, slope_raster_uri, aoi_uri=None)
-
+    if flow_dir_raster_uri is None:
+        flow_dir_raster_uri = \
+            hydro_naming_convention(hydro_path, dem_raster_uri,  "_flow_dir")
+    if slope_raster_uri is None:
+        slope_raster_uri = \
+            hydro_naming_convention(hydro_path, dem_raster_uri, "_slope")
     # Create flow accumulation raster
-    flow_acc_raster_uri = hydro_path + basename("_flow_acc".join(splitext(dem_raster_uri)))
-    if not os.path.exists(flow_acc_raster_uri):
-        logger.debug("Calculating Flow Accumulation raster")
-        pygrout.routing.flow_accumulation(flow_dir_raster_uri, dem_raster_uri,
-                                          flow_acc_raster_uri)
-        change_geotiff_nodata_value(flow_acc_raster_uri, new_nodata=-9999)
+    if flow_acc_raster_uri is None:
+        flow_acc_raster_uri = \
+            hydro_naming_convention(hydro_path, dem_raster_uri, "_flow_acc")
+
+    create_hydro_layers(hydro_path, dem_raster_uri,
+                        flow_dir_raster_uri=flow_dir_raster_uri,
+                        slope_raster_uri=slope_raster_uri,
+                        flow_acc_raster_uri=flow_acc_raster_uri)
 
     if (streams_raster_uri is None):
         streams_raster_uri = output_path + "streams_" + suffix + ".tif"
 
     if not os.path.exists(streams_raster_uri):
-        logger.warning("No streams raster supplied")
-        if river_reference_shape_uri_list is None:
-            logger.error("Missing streams raster (%s) and no shapefiles supplied " +
-                         basename(streams_raster_uri) )
-            raise IOError("No stream raster supplied nor can be created")
-        elif len(river_reference_shape_uri_list) == 0:
-            logger.error("Missing streams raster (%s) and no shapefiles supplied " +
-                         basename(streams_raster_uri))
-            raise IOError("No stream raster supplied nor can be created")
-        else:
-            # real purpose of this function is to create the stream raster;
-            # 'threshold flow accumulation' value is deprecated
-            logger.info("Creating streams raster from reference shapefiles")
-            thflac = optimize_threshold_flowacc(flow_acc_raster_uri,
-                                                river_reference_shape_uri_list,
-                                                workspace_path=working_path,
-                                                suffix=suffix, seedlen=1000,
-                                                aoi_shape_uri=aoi_shape_uri,
-                                                streams_raster_uri=streams_raster_uri)
+        check_streams_raster_sourcedata(streams_raster_uri,
+                                        river_reference_shape_uri_list)
+        # real purpose of this function is to create the stream raster;
+        # 'threshold flow accumulation' value is deprecated
+        logger.info("Creating streams raster from reference shapefiles")
+        thflac = optimize_threshold_flowacc(flow_acc_raster_uri,
+                                            river_reference_shape_uri_list,
+                                            workspace_path=working_path,
+                                            suffix=suffix, seedlen=1000,
+                                            aoi_shape_uri=aoi_shape_uri,
+                                            streams_raster_uri=streams_raster_uri)
 
     # Set flow direction raster to null where there are streams
     if not made_flowdir_channels:
-        logger.info("Defining flow direction channels...")
-        if not os.path.exists(flow_dir_channels_raster_uri):
-            define_channels(flow_dir_raster_uri,
-                            flow_dir_channels_raster_uri,
-                            streams_raster_uri)
+        burn_stream_into_flowdir_channels(flow_dir_raster_uri, streams_raster_uri,
+                                          flow_dir_channels_raster_uri)
         made_flowdir_channels = True
 
     ################################################################################
@@ -1673,7 +2222,8 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
     ## LULC Index-R
     if not made_lulc_coeffs:  # N.B. this is an internal pandas table, not a file
         logger.info("\tMapping coefficients to landcover...")
-        lulc_coeff_df = map_coefficients(lulc_raster_uri, rios_fields["landuse"], rios_coeff_table)
+        lulc_coeff_df = map_coefficients(lulc_raster_uri, rios_fields["landuse"],
+                                         rios_coeff_table)
         made_lulc_coeffs = True
 
     # Soil depth index
@@ -1687,363 +2237,66 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
         made_slope_index = True
 
 
-    ###########################################################################
+###############################################################################
     ### Process Flood Mitigation objective
     if objective['Flood Mitigation']['found']:
         this_obj = "Flood Mitigation"
         intermediate_files = objective[this_obj]["intermediate"]
         output_files = objective[this_obj]["output"]
-        flood_index_cover = working_path + intermediate_files['index_cover']
-        flood_index_rough = working_path + intermediate_files['index_rough']
-        flood_riparian_index = output_path + output_files['riparian_index']
-        flood_slope_index = output_path +output_files['slope_index']
-        flood_comb_weight_R = working_path + intermediate_files['comb_weight_ret']
-        flood_dret_flowlen = working_path + intermediate_files['dret_flowlen']
-        flood_dret_index = output_path + output_files['dret_index']
-        flood_rainfall_depth_index = working_path + intermediate_files['rainfall_depth_index']
-        flood_comb_weight_source = working_path + intermediate_files['comb_weight_source']
-        flood_upslope_source = output_path + output_files['upslope_source']
 
-        logger.info("Processing Flood Mitigation objective...")
+        process_flood_mitigation(intermediate_files, output_files,
+                                 working_path, output_path,
+                                 lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                 dem_raster_uri, flow_dir_raster_uri,
+                                 slope_raster_uri, streams_raster_uri,
+                                 precip_month_raster_uri, soil_texture_raster_uri,
+                                 river_buffer_dist=river_buffer_dist)
 
-        # Make Cover and Roughness Index rasters
-        if not os.path.exists(flood_index_cover):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["cover"],
-                                    flood_index_cover)
-
-        if not os.path.exists(flood_index_rough):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["roughness"],
-                                    flood_index_rough)
-
-        # Riparian continuity
-        logger.debug("\tCreating riparian index...")
-
-        if not os.path.exists(flood_riparian_index):
-            calculate_riparian_index(streams_raster_uri=streams_raster_uri,
-                                     retention_index_uri=flood_index_rough,
-                                     output_riparian_index_uri=flood_riparian_index,
-                                     map_buffer=river_buffer_dist)
-
-        logger.info("\t... created Flood Mitigation riparian continuity index: "
-                    + basename(flood_riparian_index))
-
-        # Slope index - binned, not normalized
-        logger.debug("\tCreating slope index..." + time.asctime())
-
-        value_bounds = [5.0, 10.0]
-        replacement_index = [0.33, 0.66, 1.0]
-        if not os.path.exists(flood_slope_index):
-            raster_value_to_index(slope_raster_uri, flood_slope_index,
-                                  value_bounds, replacement_index)
-
-        logger.info("\t... created Flood slope index: "
-                    + basename(flood_slope_index))
-
-        # Combined weight R
-        logger.debug("\tCreating downslope retention index...")
-
-        if not os.path.exists(flood_comb_weight_R):
-            average_raster(raster_uri_list=[flood_index_rough],
-                           inverseraster_uri_list=[flood_slope_index],
-                           output_raster_uri=flood_comb_weight_R)
-
-        ## Downslope retention index
-        if not os.path.exists(flood_dret_flowlen):
-            pygrout.routing.distance_to_stream(flow_dir_raster_uri,
-                                               streams_raster_uri,
-                                               flood_dret_flowlen,
-                                               factor_uri=flood_comb_weight_R)
-        if not os.path.exists(flood_dret_index):
-            normalize(flood_dret_flowlen, flood_dret_index)
-
-        logger.info("\t... created Flood Mitigation downslope retention index: "
-                     + basename(flood_dret_index))
-
-        logger.debug("\tCreating upslope source...")
-        # Rainfall depth index
-        if not os.path.exists(flood_rainfall_depth_index):
-            normalize(precip_month_raster_uri, flood_rainfall_depth_index)
-
-        # Combined weight source
-        if not os.path.exists(flood_comb_weight_source):
-            average_raster(raster_uri_list=[flood_rainfall_depth_index,
-                                            soil_texture_raster_uri,
-                                            flood_slope_index],
-                           inverseraster_uri_list=[flood_index_cover,
-                                                   flood_index_rough],
-                           output_raster_uri=flood_comb_weight_source)
-
-        ## Upslope source
-        if not os.path.exists(flood_upslope_source):
-            weighted_flow_accumulation(flow_dir_raster_uri,
-                                       dem_raster_uri,
-                                       flood_upslope_source,
-                                       source_weight_uri=flood_comb_weight_source)
-        logger.info("\t... created Flood Mitigation upslope source: "
-                           + basename(flood_upslope_source))
-
-    ################################################################################
+###############################################################################
     ### Process Erosion Control objective
     if objective['Erosion Control']['found']:
-
         this_obj = "Erosion Control"
         intermediate_files = objective[this_obj]["intermediate"]
         output_files = objective[this_obj]["output"]
-        erosion_index_exp = working_path + intermediate_files['index_exp']
-        erosion_index_ret = working_path + intermediate_files['index_ret']
-        erosion_comb_weight_R = working_path  + intermediate_files['comb_weight_R']
-        erosion_dret_flowlen = working_path + intermediate_files['dret_flowlen']
-        erosion_comb_weight_Exp = working_path + intermediate_files['comb_weight_Exp']
-        erosion_dret_index = output_path + output_files['dret_index']
-        erosion_upslope_source = output_path + output_files['upslope_source']
-        erosion_riparian_index = output_path + output_files['riparian_index']
+        process_erosion_control(intermediate_files, output_files,
+                                working_path, output_path,
+                                lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                dem_raster_uri, flow_dir_raster_uri,
+                                slope_index_uri, streams_raster_uri,
+                                erosivity_raster_uri, erosivity_index_uri,
+                                erodibility_raster_uri, erodibility_index_uri,
+                                soil_depth_index_uri,
+                                river_buffer_dist=river_buffer_dist)
 
-        logger.info("Processing Erosion Control objective...")
-        # Make Export and Retention Index rasters
-        if not os.path.exists(erosion_index_exp):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["sedimentexport"],
-                                    erosion_index_exp)
-
-        if not os.path.exists(erosion_index_ret):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["sedimentretention"],
-                                    erosion_index_ret)
-
-        logger.debug("\tCreating downslope retention index...")
-        ## Combined weight retention calculated to extend flow length by
-        #  slope and erosion factor
-
-        if not os.path.exists(erosion_comb_weight_R):
-            average_raster(raster_uri_list=[erosion_index_ret],
-                           inverseraster_uri_list=[slope_index_uri],
-                           output_raster_uri=erosion_comb_weight_R)
-
-        ## Downslope retention index
-        if not os.path.exists(erosion_dret_flowlen):
-            pygrout.routing.distance_to_stream(flow_dir_raster_uri,
-                                               streams_raster_uri,
-                                               erosion_dret_flowlen,
-                                               factor_uri=erosion_comb_weight_R)
-
-        if not os.path.exists(erosion_dret_index):
-            normalize(erosion_dret_flowlen, erosion_dret_index)
-        ####
-        logger.info("\tCreated Erosion downslope retention index: "
-                      + basename(erosion_dret_index))
-        logger.debug("\tCreating upslope source...")
-        # Erosivity index
-        if not made_erosivity_index:
-            if not os.path.exists(erosivity_index_uri):
-                normalize(erosivity_raster_uri, erosivity_index_uri)
-            made_erosivity_index = True
-
-        # Erodibility index
-        if not made_erodibility_index:
-            if not os.path.exists(erodibility_index_uri):
-                normalize(erodibility_raster_uri, erodibility_index_uri)
-            made_erodibility_index = True
-
-        # Combined weight export
-        if not os.path.exists(erosion_comb_weight_Exp):
-            average_raster(raster_uri_list=[slope_index_uri,
-                                            erosivity_index_uri,
-                                            erodibility_index_uri,
-                                            soil_depth_index_uri,
-                                            erosion_index_exp],
-                           inverseraster_uri_list=[erosion_index_ret],
-                           output_raster_uri=erosion_comb_weight_Exp)
-        ## Upslope source
-        ## Not an index because we're not normalizing in this script
-        if not os.path.exists(erosion_upslope_source):
-            weighted_flow_accumulation(flow_dir_raster_uri,
-                                       dem_raster_uri, erosion_upslope_source,
-                                       source_weight_uri=erosion_comb_weight_Exp)
-        logger.info("\tCreated Erosion upslope source: "
-                    + basename(erosion_upslope_source))
-
-        ## Riparian continuity
-        logger.debug("\tCreating riparian index...")
-
-        if not os.path.exists(erosion_riparian_index):
-            calculate_riparian_index(streams_raster_uri=streams_raster_uri,
-                                     retention_index_uri=erosion_index_ret,
-                                     output_riparian_index_uri=erosion_riparian_index,
-                                     map_buffer=river_buffer_dist)
-        logger.info("\tCreated Erosion riparian continuity index: "
-                    + basename(erosion_riparian_index))
-
-################################################################################
+###############################################################################
     ### Process Phosphorus Retention objective
     if objective['Phosphorus Retention']['found']:
         this_obj = "Phosphorus Retention"
         intermediate_files = objective[this_obj]["intermediate"]
         output_files = objective[this_obj]["output"]
-        phosphorus_index_exp = working_path  + intermediate_files['index_exp']
-        phosphorus_index_ret = working_path + intermediate_files['index_ret']
-        phosphorus_comb_weight_R = working_path + intermediate_files['comb_weight_R']
-        phosphorus_dret_flowlen = working_path + intermediate_files['dret_flowlen']
-        phosphorus_dret_index = output_path + output_files['dret_index']
-        phosphorus_comb_weight_Exp = working_path + intermediate_files['comb_weight_Exp']
-        phosphorus_upslope_source = output_path + output_files['upslope_source']
-        phosphorus_riparian_index =  output_path + output_files['riparian_index']
+        process_phosphorus_retention(intermediate_files, output_files,
+                                     working_path, output_path,
+                                     lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                     dem_raster_uri, flow_dir_raster_uri,
+                                     slope_index_uri, streams_raster_uri,
+                                     erosivity_raster_uri, erosivity_index_uri,
+                                     erodibility_raster_uri, erodibility_index_uri,
+                                     soil_depth_index_uri,
+                                     river_buffer_dist=river_buffer_dist)
 
-        logger.info("Processing Phosphorus Retention objective...")
-
-        # Make Export and Retention Index rasters
-        if not os.path.exists(phosphorus_index_exp):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["phosphateexport"],
-                                    phosphorus_index_exp)
-        if not os.path.exists(phosphorus_index_ret):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["phosphateretention"],
-                                    phosphorus_index_ret)
-
-        logger.debug("\tCreating downslope retention index...")
-
-        ## Combined weight retention calculated to extend flow length by slope
-        #  and erosion factor
-        if not os.path.exists(phosphorus_comb_weight_R):
-            average_raster(raster_uri_list=[phosphorus_index_ret],
-                           inverseraster_uri_list=[slope_index_uri],
-                           output_raster_uri=phosphorus_comb_weight_R)
-
-        ## Downslope retention index
-        if not os.path.exists(phosphorus_dret_flowlen):
-            pygrout.routing.distance_to_stream(flow_dir_raster_uri,
-                                               streams_raster_uri,
-                                               phosphorus_dret_flowlen,
-                                               factor_uri=phosphorus_comb_weight_R)
-        if not os.path.exists(phosphorus_dret_index):
-            normalize(phosphorus_dret_flowlen, phosphorus_dret_index)
-        logger.info("\t... created Phosphorus downslope retention index: "
-                      + basename(phosphorus_dret_index))
-
-        logger.debug("\tCreating upslope source...")
-        # Erosivity index
-        if not made_erosivity_index:
-            if not os.path.exists(erosivity_index_uri):
-                normalize(erosivity_raster_uri, erosivity_index_uri)
-            made_erosivity_index = True
-        # Erodibility index
-        if not made_erodibility_index:
-            if not os.path.exists(erodibility_index_uri):
-                normalize(erodibility_raster_uri, erodibility_index_uri)
-            made_erodibility_index = True
-
-        # Combined weight export
-        if not os.path.exists(phosphorus_comb_weight_Exp):
-            average_raster(
-                raster_uri_list=[slope_index_uri,
-                                 erosivity_index_uri,
-                                 erodibility_index_uri,
-                                 soil_depth_index_uri,
-                                 phosphorus_index_exp],
-                inverseraster_uri_list=[phosphorus_index_ret],
-                output_raster_uri=phosphorus_comb_weight_Exp)
-
-        ## Upslope source
-        if not os.path.exists(phosphorus_upslope_source):
-            weighted_flow_accumulation(flow_dir_raster_uri,
-                                       dem_raster_uri,
-                                       phosphorus_upslope_source,
-                                       source_weight_uri=phosphorus_comb_weight_Exp)
-        logger.info("\t... created Phosphorus upslope source: "
-                    + basename(phosphorus_upslope_source))
-
-        ## Riparian continuity
-        logger.debug("\tCreating riparian index...")
-        if not os.path.exists(phosphorus_riparian_index):
-            calculate_riparian_index(streams_raster_uri=streams_raster_uri,
-                                     retention_index_uri=phosphorus_index_ret,
-                                     output_riparian_index_uri=phosphorus_riparian_index,
-                                     map_buffer=river_buffer_dist)
-        logger.info("\t... created Phosphorus riparian continuity index: "
-                    + basename(phosphorus_riparian_index))
-
-
-################################################################################
+###############################################################################
     ### Process Nitrogen Retention objective
-
     if objective['Nitrogen Retention']['found']:
         this_obj = "Nitrogen Retention"
         intermediate_files = objective[this_obj]["intermediate"]
         output_files = objective[this_obj]["output"]
-        nitrogen_index_exp = working_path + intermediate_files['index_exp']
-        nitrogen_index_ret = working_path + intermediate_files['index_ret']
-        nitrogen_comb_weight_R = working_path + intermediate_files['comb_weight_R']
-        nitrogen_dret_flowlen = working_path + intermediate_files['dret_flowlen']
-        nitrogen_dret_index = output_path + output_files['dret_index']
-        nitrogen_comb_weight_Exp = working_path + intermediate_files['comb_weight_Exp']
-        nitrogen_upslope_source = output_path + output_files['upslope_source']
-        nitrogen_riparian_index = output_path + output_files['riparian_index']
-
-        logger.info("Processing Nitrogen Retention objective...")
-        # Make Export and Retention Index rasters
-        if not os.path.exists(nitrogen_index_exp):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["nitrateexport"],
-                                    nitrogen_index_exp)
-        if not os.path.exists(nitrogen_index_ret):
-            derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                    lulc_coeff_df, rios_fields["nitrateretention"],
-                                    nitrogen_index_ret)
-
-        logger.debug("\tCreating downslope retention index..." + time.asctime())
-
-        ## Combined weight retention
-        if not made_slope_index:
-            if not os.path.exists(slope_index_uri):
-                normalize(slope_raster_uri, slope_index_uri)
-            made_slope_index = True
-
-        if not os.path.exists(nitrogen_comb_weight_R):
-            average_raster(raster_uri_list=[nitrogen_index_ret],
-                           inverseraster_uri_list=[slope_index_uri],
-                           output_raster_uri=nitrogen_comb_weight_R)
-
-        ## Downslope retention index
-
-        if not os.path.exists(nitrogen_dret_flowlen):
-            pygrout.routing.distance_to_stream(flow_dir_raster_uri,
-                                               streams_raster_uri,
-                                               nitrogen_dret_flowlen,
-                                               factor_uri=nitrogen_comb_weight_R)
-
-        if not os.path.exists(nitrogen_dret_index):
-            normalize(nitrogen_dret_flowlen, nitrogen_dret_index)
-        logger.info("\t... created Nitrogen downslope retention index: "
-                    + basename(nitrogen_dret_index))
-        logger.debug("\tCreating upslope source...")
-        # Combined weight export
-        if not os.path.exists(nitrogen_comb_weight_Exp):
-            average_raster(raster_uri_list=[slope_index_uri,
-                                            soil_depth_index_uri,
-                                            nitrogen_index_exp],
-                           inverseraster_uri_list=[nitrogen_index_ret],
-                           output_raster_uri=nitrogen_comb_weight_Exp)
-
-        ## Upslope source
-        if not os.path.exists(nitrogen_upslope_source):
-            weighted_flow_accumulation(flow_dir_raster_uri,
-                                       dem_raster_uri,
-                                       nitrogen_upslope_source,
-                                       source_weight_uri=nitrogen_comb_weight_Exp)
-        logger.info("\t... created Nitrogen upslope source: "
-                           + basename(nitrogen_upslope_source))
-
-        ## Riparian continuity
-        logger.debug("\tCreating riparian index...")
-        if not os.path.exists(nitrogen_riparian_index):
-            calculate_riparian_index(streams_raster_uri=streams_raster_uri,
-                                     retention_index_uri=nitrogen_index_ret,
-                                     output_riparian_index_uri=nitrogen_riparian_index,
-                                     map_buffer=river_buffer_dist)
-        logger.info("\t... created Nitrogen riparian continuity index: "
-                           + basename(nitrogen_riparian_index))
+        process_nitrogen_retention(intermediate_files, output_files,
+                                   working_path, output_path,
+                                   lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                   dem_raster_uri, flow_dir_raster_uri,
+                                   slope_index_uri, streams_raster_uri,
+                                   soil_depth_index_uri,
+                                   river_buffer_dist=river_buffer_dist)
 
 
     ################################################################################
@@ -2052,125 +2305,16 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
         this_obj = "Groundwater Recharge/Baseflow"
         intermediate_files = objective[this_obj]["intermediate"]
         output_files = objective[this_obj]["output"]
-        gwater_index_cover = working_path + intermediate_files['index_cover']
-        gwater_index_rough = working_path + intermediate_files['index_rough']
-        gwater_slope_index = output_path + output_files['slope_index']
-        gwater_comb_weight_R = working_path + intermediate_files['comb_weight_ret']
-        gwater_dret_flowlen = working_path + intermediate_files['dret_flowlen']
-        gwater_dret_index = output_path + output_files['dret_index']
-        gwater_precip_annual_index = working_path + intermediate_files['precip_annual_index']
-        gwater_aet_index = working_path + intermediate_files['aet_index']
-        gwater_comb_weight_source = working_path + intermediate_files['comb_weight_source']
-        gwater_upslope_source = output_path + output_files['upslope_source']
 
-        logger.info("Processing Groundwater Recharge/Baseflow objective...")
-
-
-        ## LULC Index-R
-        # Make Cover and Roughness Index rasters
-        if not os.path.exists(gwater_index_cover):
-            # if flood mitigation done, reuse data
-            flood_index_cover = working_path \
-                    + objective['Flood Mitigation']["intermediate"]['index_cover']
-            if os.path.exists(flood_index_cover):
-                gwater_index_cover = flood_index_cover
-            else:
-                derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                        lulc_coeff_df, rios_fields["cover"],
-                                        gwater_index_cover)
-
-        if not os.path.exists(gwater_index_rough):
-            # if flood mitigation done, reuse data
-            flood_index_rough = working_path \
-                    + objective['Flood Mitigation']['intermediate']['index_rough']
-            if os.path.exists(flood_index_rough):
-                gwater_index_rough = flood_index_rough
-            else:
-                derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
-                                        lulc_coeff_df, rios_fields["roughness"],
-                                        gwater_index_rough)
-
-        ## Slope index - binned, not normalized,
-        # use Flood's slope index if it was created
-        logger.debug("\tCreating slope index...")
-
-        if not os.path.exists(gwater_slope_index):
-            flood_slope_index = output_path \
-                    + objective['Flood Mitigation']['output']['slope_index']
-            if os.path.exists(flood_slope_index):
-                gwater_slope_index = flood_slope_index
-            else:
-                value_bounds = [5.0, 10.0]
-                replacement_index = [0.33, 0.66, 1.0]
-                raster_value_to_index(slope_raster_uri, gwater_slope_index,
-                                      value_bounds, replacement_index)
-
-        logger.info("\t... created Groundwater/Baseflow slope index: "
-                    + basename(gwater_slope_index))
-
-        ## Downslope retention Index
-        # Since these are same as Flood mitigation, reuse those rasters if they've been done
-        logger.debug("\tCreating downslope retention index...")
-        # Combined weight R
-        if not os.path.exists(gwater_comb_weight_R):
-            flood_comb_weight_R = working_path \
-                     + objective['Flood Mitigation']['intermediate']['comb_weight_ret']
-            if os.path.exists(flood_comb_weight_R):
-                gwater_comb_weight_R = flood_comb_weight_R
-            else:
-                average_raster(raster_uri_list=[gwater_index_rough],
-                               inverseraster_uri_list=[gwater_slope_index],
-                               output_raster_uri=gwater_comb_weight_R)
-
-        # Downslope retention index
-        if not os.path.exists(gwater_dret_flowlen):
-            flood_dret_flowlen = working_path \
-                    + objective['Flood Mitigation']['intermediate']['dret_flowlen']
-            flood_dret_index = output_path \
-                    + objective['Flood Mitigation']['output']['dret_index']
-            if os.path.exists(flood_dret_flowlen) \
-                    and os.path.exists(flood_dret_index):
-                gwater_dret_flowlen = flood_dret_flowlen
-                gwater_dret_index = flood_dret_index
-            else:
-                pygrout.routing.distance_to_stream(flow_dir_raster_uri,
-                                                   streams_raster_uri,
-                                                   gwater_dret_flowlen,
-                                                   factor_uri=gwater_comb_weight_R)
-                normalize(gwater_dret_flowlen, gwater_dret_index)
-        logger.info("\t... created Groundwater/Baseflow downslope retention index: "
-                    + basename(gwater_dret_index))
-
-        logger.debug("\tCreating upslope source...")
-
-        # Annual average precipitation index
-        if not os.path.exists(gwater_precip_annual_index):
-            normalize(precip_annual_raster_uri, gwater_precip_annual_index)
-
-        # Actual Evapotranspiration (AET) index
-        if not os.path.exists(gwater_aet_index):
-            normalize(aet_raster_uri, gwater_aet_index)
-
-        # Combined weight source
-        if not os.path.exists(gwater_comb_weight_source):
-            average_raster(raster_uri_list=[gwater_precip_annual_index,
-                                            soil_texture_raster_uri,
-                                            gwater_slope_index,
-                                            soil_depth_index_uri],
-                           inverseraster_uri_list=[gwater_aet_index,
-                                                   gwater_index_cover,
-                                                   gwater_index_rough],
-                           output_raster_uri=gwater_comb_weight_source)
-
-        ## Upslope source
-        if not os.path.exists(gwater_upslope_source):
-            weighted_flow_accumulation(flow_dir_raster_uri,
-                                       dem_raster_uri,
-                                       gwater_upslope_source,
-                                       source_weight_uri=gwater_comb_weight_source)
-
-        logger.info("\t... created Groundwater/Baseflow upslope source: "
-                           + basename(gwater_upslope_source))
+        process_groundwater_recharge(intermediate_files, output_files,
+                                     working_path, output_path,
+                                     lulc_raster_uri, lulc_coeff_df, rios_fields,
+                                     dem_raster_uri, flow_dir_raster_uri,
+                                     slope_raster_uri, streams_raster_uri,
+                                     precip_annual_raster_uri, aet_raster_uri,
+                                     soil_depth_index_uri,
+                                     soil_texture_raster_uri,
+                                     objective['Flood Mitigation'])
 
     ############################################################################
     ### Write input parameters to an output file for user reference

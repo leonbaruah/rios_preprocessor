@@ -62,6 +62,21 @@ Installation
 Changelog
 ---------
 
+
+Version 0.2.0
+~~~~~~~~~~~~~
+
+- Refactored and modularised code for increased usability
+- Raster projection checks added
+- Set deprecation warning for get_objectives_list
+- Minor bug fixes
+
+Version 0.1.9
+~~~~~~~~~~~~~
+
+-  Fixed upslope source and riparian index getting affected by integer bug
+
+
 Version 0.1.8
 ~~~~~~~~~~~~~
 
