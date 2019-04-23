@@ -43,7 +43,7 @@ Along the way, there are some additional tricks `rios_preprocessor` uses that ma
 * pandas
 * geopandas
 * fiona
-* rasterio > 0.36.0
+* rasterio > 1.0
 * shapely
 * pygeoprocessing ~= 0.3.3
 
@@ -58,6 +58,13 @@ Questions about `RIOS` are picked up at the <a href="http://forums.naturalcapita
 If you have any questions or comments about `rios_preprocessor` specifically, you can contact me through the [Viridian Logic website](http://viridianlogic.com/#contactus).
 
 # Changelog
+
+## Version 0.2.1
+
+* Refactored stream rasterization to use geopandas
+* Began introducing logging features (unfinished)
+* Permitted a riparian zone of zero width
+* Minor bug fixes
 
 ## Version 0.2.0
 
