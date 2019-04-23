@@ -50,7 +50,7 @@ Dependencies
 -  pandas
 -  geopandas
 -  fiona
--  rasterio > 0.36
+-  rasterio > 1.0
 -  shapely
 -  pygeoprocessing ~= 0.3.3
 
@@ -61,6 +61,15 @@ Installation
 
 Changelog
 ---------
+
+
+Version 0.2.1
+~~~~~~~~~~~~~
+
+- Refactored stream rasterization to use geopandas
+- Began introducing logging features (unfinished)
+- Permitted a riparian zone of zero width
+- Minor bug fixes
 
 
 Version 0.2.0
