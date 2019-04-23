@@ -1746,7 +1746,7 @@ def process_flood_mitigation(intermediate_files, output_files,
     logger.info("\t... created Flood slope index: "
                 + os.path.basename(flood_slope_index))
     outputD['slope'] = {"index":flood_slope_index,
-                        "file":slope_raster_uri
+                        "file":slope_raster_uri,
                         "factor":{"code":{
                                 "package":"rios_preprocessor,",
                                 "function":"calculate_slope_index"}}}
@@ -2304,7 +2304,7 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
         hydroConf['streams'] = \
                 {"file":streams_raster_uri,
                  "source":{"flow accumulation":hydroConf["flow accumulation"],
-                           "river reference":{"file":river_reference_shape_uri_list}}
+                           "river reference":{"file":river_reference_shape_uri_list}},
                  "factor":{"flow accumulation threshold":thflac}}
     if 'Streams' not in hydroConf.keys():
         hydroConf['streams'] = {"file": streams_raster_uri}
