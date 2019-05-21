@@ -7,7 +7,7 @@ here = os.path.abspath(os.path.dirname('__file__'))
 
 LONG_DESCRIPTION = open(os.path.join(here, 'README.rst')).read()
 INITSCRIPT = open(os.path.join(here, 'rios_preprocessor', '__init__.py')).read().split('\n')
-_VERSION = '0.2.1'
+_VERSION = '0.2.2'
 for line in INITSCRIPT:
     if '__version__' in line:
         v_no = line.split('=')[-1].strip(' ')
