@@ -1,4 +1,4 @@
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 import types as _types
 import rios_preprocessor
 from pkgutil import extend_path
@@ -14,7 +14,7 @@ from rios_preprocessor import (average_raster,
                                check_streams_raster_sourcedata,
                                create_hydro_layers,
                                define_channels, 
-                               derive_raster_from_lulc, 
+                               derive_raster_from_lulc,
                                get_end_pixels_of_river_raster,
                                get_input_data, 
                                get_input_data_param_dictionary, 
@@ -22,6 +22,7 @@ from rios_preprocessor import (average_raster,
                                get_intermediate_file,
                                get_intermediate_objective_suffix,
                                get_neighbouring_pixels,
+                               get_normalisation_factor_from_file,
                                get_objective_df,
                                get_objective_dictionary, 
                                get_objective_todo, 

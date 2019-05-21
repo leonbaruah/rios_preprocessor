@@ -558,6 +558,23 @@ def map_coefficients(lulc_raster_uri, lucode_field, rios_coeff_table):
 
 
 ###############################################################################
+def get_normalisation_factor_from_file(input_raster_uri):
+    """
+    Args:
+        input_raster_uri: raster with raw data values
+    Returns:
+
+    """
+    with rasterio.open(input_raster_uri, 'r') as rasterin:
+        in_data = rasterin.read(1)
+        in_meta = rasterin.meta
+
+    good_data = np.where(in_data != in_meta['nodata'])
+    normalisation_factor = np.max(in_data[good_data])
+    return normalisation_factor
+
+
+###############################################################################
 def normalize(in_raster_uri, out_raster_uri, nullvalue=-9999., 
               crs={'init':u'epsg:27700'}):
     """
@@ -569,16 +586,21 @@ def normalize(in_raster_uri, out_raster_uri, nullvalue=-9999.,
         in_raster_uri   - path to raster to be normalized
         out_raster_uri  - path to output normalized raster.
     """
-    with rasterio.open(in_raster_uri, 'r') as rasterin:
-        in_data = rasterin.read(1)
-        in_meta = rasterin.meta
-        if in_meta['nodata'] is None:
-            in_meta.update(nodata=nullvalue)
-        if len(in_meta['crs']) == 0:  # if no coordinate reference system -> BNG
-            in_meta.update(crs=crs)
-    out_data, norm_fctr = normalize_array(in_data, nullvalue=in_meta['nodata'])
-    with rasterio.open(out_raster_uri, 'w', **in_meta) as rasterout:
-        rasterout.write_band(1, out_data)
+
+    if os.path.exists(out_raster_uri):
+        norm_fctr = get_normalisation_factor_from_file(in_raster_uri)
+    else:
+        with rasterio.open(in_raster_uri, 'r') as rasterin:
+            in_data = rasterin.read(1)
+            in_meta = rasterin.meta
+            if in_meta['nodata'] is None:
+                in_meta.update(nodata=nullvalue)
+            if len(in_meta['crs']) == 0:  # if no coordinate reference system -> BNG
+                in_meta.update(crs=crs)
+
+        out_data, norm_fctr = normalize_array(in_data, nullvalue=in_meta['nodata'])
+        with rasterio.open(out_raster_uri, 'w', **in_meta) as rasterout:
+            rasterout.write_band(1, out_data)
     return norm_fctr
 
 
@@ -1643,6 +1665,9 @@ def calculate_downslope_retention_index(weight_uri_list,
     if not os.path.exists(downslope_ret_index_uri):
         norm_factor = normalize(downslope_ret_flowlen_uri,
                                 downslope_ret_index_uri)
+    else:
+        norm_factor = \
+                get_normalisation_factor_from_file(downslope_ret_flowlen_uri)
 
     dret_dict = {"index":downslope_ret_index_uri,
                  "file":downslope_ret_flowlen_uri,
@@ -1705,29 +1730,32 @@ def process_flood_mitigation(intermediate_files, output_files,
         derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
                                 lulc_coeff_df, rios_fields["cover"],
                                 flood_index_cover)
-        indexD['LULC cover'] = {
-                'index':flood_index_cover,
-                'source':{"LULC":{"file":lulc_raster_uri}},
-                'factor':{'LULC table':{"file":lulc_coeff_df['file'][0].item()},
-                          'LULC factor':rios_fields["cover"]}}
+    indexD['LULC cover'] = {
+            'index':flood_index_cover,
+            'source':{"LULC":{"file":lulc_raster_uri}},
+            'factor':{'LULC table':{"file":lulc_coeff_df['file'][0]},
+                      'LULC factor':rios_fields["cover"]}}
 
     if not os.path.exists(flood_index_rough):
         derive_raster_from_lulc(lulc_raster_uri, rios_fields["landuse"],
                                 lulc_coeff_df, rios_fields["roughness"],
                                 flood_index_rough)
-        indexD['LULC rough'] = {
-                'index': flood_index_rough,
-                'source': {"LULC":{"file":lulc_raster_uri}},
-                'factor': {'LULC table':{"file":lulc_coeff_df['file'][0].item()},
-                           'LULC factor': rios_fields["rough"]}}
+    indexD['LULC rough'] = {
+            'index': flood_index_rough,
+            'source': {"LULC":{"file":lulc_raster_uri}},
+            'factor': {'LULC table':{"file":lulc_coeff_df['file'][0]},
+                       'LULC factor': rios_fields["roughness"]}}
 
     # Make other index rasters as necessary
     if not os.path.exists(flood_rainfall_depth_index):
         factor = normalize(precip_month_raster_uri, flood_rainfall_depth_index)
-        indexD["precipitation for wettest month"] = {
-                "file":precip_month_raster_uri,
-                "index":flood_rainfall_depth_index,
-                "factor":{"normalisation":factor}}
+    else:
+        factor = get_normalisation_factor_from_file(precip_month_raster_uri)
+
+    indexD["precipitation for wettest month"] = {
+            "file":precip_month_raster_uri,
+            "index":flood_rainfall_depth_index,
+            "factor":{"normalisation":factor}}
 
     # Riparian continuity
     calculate_riparian_index(streams_raster_uri=streams_raster_uri,
@@ -1754,13 +1782,12 @@ def process_flood_mitigation(intermediate_files, output_files,
     # Downslope Retention Index
     dsloperetdict = calculate_downslope_retention_index(flood_index_rough,
             flood_slope_index, flood_comb_weight_R, flow_dir_raster_uri,
-            streams_raster_uri, flood_dret_flowlen, flood_dret_index,
-            write_log=write_log)
+            streams_raster_uri, flood_dret_flowlen, flood_dret_index)
 
     indexD["combined weight retention"] = {
             "file":flood_comb_weight_R,
             "source":{'LULC rough': indexD['LULC rough'],
-                      'slope index': outputD['slope index']},
+                      'slope index': outputD['slope']['index']},
             "factor":{'code':{
                     "package":"rios_preprocessor",
                     "function":"average_raster"}}}
@@ -2301,11 +2328,20 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
                                             suffix=suffix, seedlen=1000,
                                             aoi_shape_uri=aoi_shape_uri,
                                             streams_raster_uri=streams_raster_uri)
-        hydroConf['streams'] = \
-                {"file":streams_raster_uri,
-                 "source":{"flow accumulation":hydroConf["flow accumulation"],
-                           "river reference":{"file":river_reference_shape_uri_list}},
-                 "factor":{"flow accumulation threshold":thflac}}
+    else:
+        with rasterio.open(streams_raster_uri, 'r') as streams_raster:
+            stream_data = streams_raster.read(1)
+            stream_meta = streams_raster.meta
+        with rasterio.open(flow_acc_raster_uri, 'r') as flow_acc:
+            flo_data = flow_acc.read(1)
+        thflac = np.min(flo_data[np.where((stream_data > 0) &
+                                          (stream_data != stream_meta['nodata']))])
+
+    hydroConf['streams'] = \
+            {"file":streams_raster_uri,
+             "source":{"flow accumulation":hydroConf["flow accumulation"],
+                       "river reference":{"file":river_reference_shape_uri_list}},
+             "factor":{"flow accumulation threshold":thflac}}
     if 'Streams' not in hydroConf.keys():
         hydroConf['streams'] = {"file": streams_raster_uri}
 
@@ -2314,7 +2350,7 @@ def main(working_path, output_path, hydro_path, rios_coeff_table,
         burn_stream_into_flowdir_channels(flow_dir_raster_uri, streams_raster_uri,
                                           flow_dir_channels_raster_uri)
         made_flowdir_channels = True
-    hydroconf["flow direction with channels"] = \
+    hydroConf["flow direction with channels"] = \
             {'file':flow_dir_channels_raster_uri,
              'source':{"flow direction":hydroConf["flow direction"],
                        "streams":hydroConf['streams']}}
