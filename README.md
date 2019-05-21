@@ -59,6 +59,10 @@ If you have any questions or comments about `rios_preprocessor` specifically, yo
 
 # Changelog
 
+## Version 0.2.2
+* Began implementing routine to recover normalisation factors (flood objective only so far)
+* Minor bug fixes
+
 ## Version 0.2.1
 
 * Refactored stream rasterization to use geopandas

@@ -62,6 +62,10 @@ Installation
 Changelog
 ---------
 
+Version 0.2.2
+~~~~~~~~~~~~~
+- Began implementing routine to recover normalisation factors (flood objective only so far)
+- Minor bug fixes
 
 Version 0.2.1
 ~~~~~~~~~~~~~
