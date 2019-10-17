@@ -62,6 +62,11 @@ Installation
 Changelog
 ---------
 
+Version 0.2.3
+~~~~~~~~~~~~~
+- Reference stream input (vector) projection verified against raster projection. Vector reprojected if necessary.
+- Minor PEP8 changes
+
 Version 0.2.2
 ~~~~~~~~~~~~~
 - Began implementing routine to recover normalisation factors (flood objective only so far)
