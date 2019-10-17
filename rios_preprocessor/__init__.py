@@ -1,4 +1,4 @@
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 import types as _types
 import rios_preprocessor
 from pkgutil import extend_path
